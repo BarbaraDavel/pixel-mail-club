@@ -96,8 +96,9 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
    });
    return ref.id;
   },
-  async iniciarPlazoPago(id,{costoEnvio,comunicado=false}={}){
+  async iniciarPlazoPago(id,{costoEnvio,comunicado=false,instruccionesPago}={}){
    admin();if(comunicado!==true)fail('Confirmá que comunicaste el importe final y las instrucciones de pago al comprador.');
+   const paymentInstructions=text(instruccionesPago,1200,'las instrucciones de pago',true);
    const ref=doc(db,'reservas',id);
    await runTransaction(db,async tx=>{
     admin();const snap=await tx.get(ref);if(!snap.exists())fail('La reserva no existe.');

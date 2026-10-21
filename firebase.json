@@ -30,7 +30,8 @@
       "emails/**",
       "scripts/**",
       "tests/**",
-      "docs/**"
+      "docs/**",
+      "functions/**"
     ]
   },
   "functions": {

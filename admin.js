@@ -71,11 +71,12 @@ reservationForm.addEventListener('submit',async event=>{
         venceEn:Timestamp.fromMillis(Date.now()+48*60*60*1000)
       });
     });
-    output.textContent='Reserva registrada. Actualizá el panel para ver los cambios.';
+    output.textContent='Reserva registrada correctamente. Actualizá el panel para ver los cambios.';
     reservationForm.reset();
   }catch(error){
     output.textContent=error.code==='permission-denied'
       ?'Firestore bloquea escrituras, como estaba previsto. Hay que habilitar únicamente escrituras de administración.'
-      :'No se creó la reserva: '+(error.message||error.code);
+      :'No se creó la reserva: '+(error.code||'error')+' · '+(error.message||'Sin detalles');
+    console.error('Error al crear reserva:',error);
   }finally{button.disabled=false;}
 });

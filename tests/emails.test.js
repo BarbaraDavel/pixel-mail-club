@@ -9,15 +9,36 @@ test('cuatro HTML responsive con texto alternativo y datos ficticios',()=>{
   assert.match(m.html,/viewport/);assert.match(m.html,/@media/);assert.match(m.html,/zorrito.png/);
   assert.match(m.text,/Anita/);assert.match(m.html,/Cartitas bajo el árbol/);
  }
- assert.match(prepararCorreo('solicitud',fixture).text,/no hay una reserva ni obligación/);
+ assert.match(prepararCorreo('solicitud',fixture).text,/todavía no está reservado/);
  const reservation=prepararCorreo('reserva',fixture);
  assert.match(reservation.text,/15:30:00/);assert.match(reservation.text,/48 horas/);
  assert.match(reservation.text,/25.000/);assert.match(reservation.text,/no están habilitados/);
  assert.doesNotMatch(prepararCorreo('reserva',{...fixture,instruccionesPago:'SECRETO'}).text,/SECRETO/);
  assert.match(prepararCorreo('reserva',{...fixture,pagosHabilitados:true,instruccionesPago:'Alias de prueba'}).text,/Alias de prueba/);
- assert.match(prepararCorreo('pago',fixture).text,/Administración verificó/);
+ assert.match(prepararCorreo('pago',fixture).text,/recibimos y confirmamos tu pago/);
  assert.match(prepararCorreo('despacho',fixture).html,/href="https:\/\/www.andreani.com/);
  assert.match(prepararCorreo('reserva',{...fixture,costoEnvio:null,total:null}).text,/A confirmar/);
+});
+
+test('logística dinámica, costos a cargo del comprador y edición sin emojis navideños fijos',()=>{
+ const reserva=prepararCorreo('reserva',fixture);
+ assert.match(reserva.text,/a cargo del comprador/);
+ assert.match(reserva.text,/48 horas/);
+ assert.match(reserva.html,/zorrito.png/);
+ assert.doesNotMatch(reserva.subject,/🎄/);
+ for(const correo of ['Correo Argentino','Andreani','OCA']){
+  const m=prepararCorreo('despacho',{...fixture,correo});
+  assert.match(m.text,new RegExp(correo));
+  assert.match(m.text,/ABC123/);
+  assert.match(m.subject,/en camino/);
+ }
+ const retiro=prepararCorreo('despacho',{...fixture,correo:'Retiro en Posadas',fechaDespacho:null,seguimiento:null,urlSeguimiento:null,indicacionesRetiro:'Coordinar horario por WhatsApp'});
+ assert.match(retiro.subject,/lista para retirar/);
+ assert.match(retiro.text,/Coordinar horario por WhatsApp/);
+ assert.doesNotMatch(retiro.text,/Seguimiento|Fecha de despacho/);
+ assert.doesNotMatch(retiro.html,/Seguí tu envío/);
+ const sinCodigo=prepararCorreo('despacho',{...fixture,correo:'OCA',seguimiento:null,urlSeguimiento:null});
+ assert.doesNotMatch(sinCodigo.text,/Seguimiento:/);
 });
 test('escapa contenido y descarta enlaces peligrosos; valida datos requeridos',()=>{
  assert.doesNotMatch(prepararCorreo('solicitud',{...fixture,apodo:'<script>alert(1)</script>'}).html,/<script>/);

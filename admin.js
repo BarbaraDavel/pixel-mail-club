@@ -249,9 +249,9 @@ async function startPaymentPeriod(r){
  }
  if(!Number.isSafeInteger(shipping)||shipping<0||shipping>100000000)throw new Error('Revisá el costo de envío.');
  const total=r.subtotal+shipping;
- const result=await dialog('Comunicación e inicio de las 48 horas','Cartitas: '+money(r.subtotal)+' · Envío: '+money(shipping)+' · Total final: '+money(total)+'. Confirmá solamente después de comunicar este importe y las instrucciones al comprador. Esta acción no envía mensajes.',[{name:'comunicado',type:'checkbox',label:'Comuniqué al comprador el importe final y las instrucciones de pago.'}]);
+ const result=await dialog('Comunicación e inicio de las 48 horas','Cartitas: '+money(r.subtotal)+' · Envío: '+money(shipping)+' · Total final: '+money(total)+'. Ingresá las instrucciones de pago que ya comunicaste al comprador. Esta acción guarda las instrucciones y comienza el plazo, pero no envía mensajes.',[{name:'instruccionesPago',type:'textarea',label:'Instrucciones de pago comunicadas (alias/CBU y referencia)',value:r.instruccionesPago||''},{name:'comunicado',type:'checkbox',label:'Comuniqué al comprador el importe final y estas instrucciones de pago.'}]);
  if(!result)return;
- await gestion.iniciarPlazoPago(r.id,{costoEnvio:shipping,comunicado:result.has('comunicado')});
+ await gestion.iniciarPlazoPago(r.id,{costoEnvio:shipping,comunicado:result.has('comunicado'),instruccionesPago:result.get('instruccionesPago')});
  await loadPanel();feedback('Importe comunicado registrado. Comenzó el plazo de 48 horas.');
 }
 async function confirmPayment(r){

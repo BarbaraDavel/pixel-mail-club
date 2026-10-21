@@ -1,4 +1,31 @@
 {
-  "firestore": {"rules": "firestore.rules", "indexes": "firestore.indexes.json"},
-  "emulators": {"firestore": {"port": 8080}, "ui": {"enabled": false}, "singleProjectMode": true}
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      ".firebaserc",
+      ".gitignore",
+      "README.md",
+      "404.html",
+      "edition-preview.json",
+      ".firebase/**",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
 }

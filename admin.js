@@ -255,8 +255,8 @@ function orderForm(r){
  const statusLabel=node('label','','Estado de preparación'),select=node('select');select.name='preparacion';
  for(const [value,title] of Object.entries(preparation)){const o=node('option','',title);o.value=value;select.append(o);}
  select.value=r.preparacion||'PENDIENTE';statusLabel.append(select);f.append(statusLabel);
- for(const [name,title,type,value] of [['seguimiento','Número de seguimiento','text',r.seguimiento||''],['fechaDespacho','Fecha de despacho','date',r.fechaDespacho||'']]){
-  const label=node('label','',title),input=node('input');input.name=name;input.type=type;input.value=value;input.maxLength=100;label.append(input);pair.append(label);
+ for(const [name,title,type,value] of [['seguimiento','Número de seguimiento','text',r.seguimiento||''],['fechaDespacho','Fecha de despacho','date',r.fechaDespacho||''],['correo','Empresa de correo','text',r.correo||''],['urlSeguimiento','Enlace HTTPS de seguimiento (opcional)','url',r.urlSeguimiento||'']]){
+  const label=node('label','',title),input=node('input');input.name=name;input.type=type;input.value=value;input.maxLength=name==='urlSeguimiento'?1000:100;label.append(input);pair.append(label);
  }
  const save=node('button','','Guardar preparación');save.type='submit';f.append(pair,save);
  f.addEventListener('submit',event=>{event.preventDefault();if(f.reportValidity())perform(save,async()=>{

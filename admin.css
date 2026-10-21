@@ -116,3 +116,11 @@
 [role="tabpanel"]:focus-visible{outline:2px solid #a96c68;outline-offset:4px}
 [role="tabpanel"][hidden]{display:none!important}
 @media(max-width:760px){.admin-nav [role="tab"]{padding:9px 11px;font-size:12px}}
+
+.request-filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(180px,1fr);gap:16px;margin-top:24px}
+.request-filters label{display:flex;flex-direction:column;gap:8px;font-size:13px;color:#765652}
+.request-filters input,.request-filters select{width:100%;box-sizing:border-box;min-height:44px;padding:12px;border:1px solid #dfc5bc;border-radius:12px;background:#fffdfb;color:#614843;font:inherit}
+.reservation-notice{padding:16px 20px;background:#f7eae3;border-radius:16px;margin:18px 0}
+.reservation-notice p{margin-top:0;line-height:1.6}
+.reservation-notice button{width:auto}
+@media(max-width:760px){.request-filters{grid-template-columns:1fr}}

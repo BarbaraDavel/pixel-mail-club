@@ -33,6 +33,7 @@ function clearPrivate(){
  el('adminContent').hidden=true;el('adminActionFeedback').hidden=true;
  for(const id of ['adminRequests','adminReservations','adminReservationsHistory','adminOrders','adminEditionSelect'])el(id).replaceChildren();
  el('adminEditionForm').reset();el('adminNewReservation').reset();
+ el('adminRequestSearch').value='';el('adminRequestFilter').value='ACTIVAS';
  if(cancelDialog)cancelDialog();
 }
 async function loadPanel(){
@@ -57,6 +58,7 @@ async function loadPanel(){
 function renderEdition(){
  const e=editions.find(e=>e.id===selected);
  el('adminEdition').textContent=e?e.nombre||'Edición '+e.id:'Creá tu primera edición';
+ el('adminReservationNotice').hidden=!e||Number.isSafeInteger(e.precio)&&e.precio>0;
  el('adminState').textContent=e?'Edición '+e.id+' · '+(e.estado||'Sin estado')+' · '+(e.precio>0?money(e.precio)+' por cartita':'Precio por definir'):'';
  try{
   const max=Number(e?.cupos??0),used=Number(e?.cuposReservados??0);
@@ -136,7 +138,7 @@ async function loadRequests(){
   loadedRequests.push(...snap.docs.map(d=>({id:d.id,...d.data()})));
   cursor=snap.docs.at(-1)||cursor;moreRequests=snap.size===25;
   renderRequests();more.hidden=!moreRequests;
-  out.textContent=loadedRequests.length?loadedRequests.length+' solicitudes cargadas · '+edition:'Todavía no hay solicitudes para esta edición.';
+
  }catch(error){
   if(ticket===generation&&authorized())out.textContent=error.code==='failed-precondition'
    ?'Falta el índice de solicitudes por edición y fecha. Crealo como se indica en FIREBASE-SETUP.md y tocá Actualizar solicitudes.'
@@ -145,8 +147,21 @@ async function loadRequests(){
 }
 function renderRequests(){
  const container=el('adminRequests');container.replaceChildren();
- if(!loadedRequests.length){empty(container,'Las personas que completen el formulario van a aparecer acá.');return;}
- for(const r of loadedRequests){
+ const normalize=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').trim();
+ const search=normalize(el('adminRequestSearch').value),filter=el('adminRequestFilter').value;
+ const visible=loadedRequests.filter(r=>{
+  const matchesState=filter==='TODAS'||(filter==='ACTIVAS'?r.estado!=='ARCHIVADA':r.estado===filter);
+  const fields=[r.nombre,r.apodo,r.email,r.telefono];
+  const matchesText=fields.some(value=>normalize(value).includes(search));
+  const digits=search.replace(/\D/g,'');
+  const matchesPhone=/^[+\d\s().-]+$/.test(search)&&digits&&String(r.telefono??'').replace(/\D/g,'').includes(digits);
+  return matchesState&&(matchesText||matchesPhone);
+ });
+ el('adminRequestsStatus').textContent=loadedRequests.length
+  ?visible.length+' de '+loadedRequests.length+' solicitudes cargadas · '+selected+(moreRequests?' · Hay más por cargar.':'')
+  :'Todavía no hay solicitudes para esta edición.';
+ if(!visible.length){empty(container,!loadedRequests.length?'Las personas que completen el formulario van a aparecer acá.':'No hay solicitudes cargadas que coincidan con esta búsqueda y filtro.'+(moreRequests?' Probá cargar más solicitudes.':''));return;}
+ for(const r of visible){
   const linked=reservations.find(x=>x.solicitudId===r.id||x.id==='solicitud_'+r.id);
   const card=cardHeader(r.nombre||'Sin nombre',r.apodo?'Le gusta que le digan '+r.apodo:'Sin apodo',node('p','request-received','Recibida el '+date(r.creadaEn)));
   const grid=node('div','request-data-grid');appendClient(grid,r);
@@ -170,6 +185,7 @@ function renderRequests(){
    a.href='#registro-'+linked.id;actions.append(a);
   }else if(r.estado!=='ARCHIVADA'){
    actions.append(makeButton('Crear reserva · 48 h',async()=>{
+    if(!checkReservationPrice())return;
     const ok=await dialog('Reservar sus cartitas 💌','Se reservarán '+r.cantidad+' cupos para '+r.nombre+' durante 48 horas. Esto no cobra ni envía mensajes. El precio actual de la edición quedará guardado en la reserva.');
     if(!ok)return;
     await gestion.reservarSolicitud(r.id);await loadPanel();tabs.show('reservationsSection');feedback('Reserva creada una sola vez. Podés verla en Reservas.');
@@ -177,6 +193,13 @@ function renderRequests(){
   }else actions.append(node('p','admin-muted','Archivada. Podés cambiarla a Contactada para retomarla.'));
   footer.append(actions,label);card.append(footer);container.append(card);
  }
+}
+function checkReservationPrice(){
+ const e=editions.find(e=>e.id===selected);
+ if(e&&Number.isSafeInteger(e.precio)&&e.precio>0)return true;
+ tabs.show('editionsSection');el('adminEditionForm').elements.precio.focus();
+ feedback('Primero definí y guardá el precio de la edición. No se creó ninguna reserva ni se ocuparon cupos.',true);
+ return false;
 }
 function renderReservations(){
  const pending=el('adminReservations'),history=el('adminReservationsHistory'),orders=el('adminOrders');
@@ -244,6 +267,7 @@ el('adminNewReservation').addEventListener('submit',event=>{
  event.preventDefault();const f=event.currentTarget;
  if(!selected||!f.reportValidity())return;
  perform(f.querySelector('button'),async()=>{
+  if(!checkReservationPrice())return;
   const data=new FormData(f),id=selected;
   const ok=await dialog('Crear reserva manual','La reserva ocupará '+data.get('cantidad')+' cupos durante 48 horas en la edición '+id+'. Para conservar datos de una solicitud, creala desde su tarjeta.');
   if(!ok)return;
@@ -268,6 +292,9 @@ el('adminEditionSelect').addEventListener('change',async event=>{
 el('adminRefresh').addEventListener('click',()=>{if(!panelLoading&&!actionBusy)loadPanel();});
 el('adminRequestsRefresh').addEventListener('click',()=>{if(!panelLoading&&!requestsLoading&&!actionBusy){generation++;resetRequests();}});
 el('adminRequestsMore').addEventListener('click',loadRequests);
+el('adminRequestSearch').addEventListener('input',()=>{if(authorized()&&!requestsLoading)renderRequests();});
+el('adminRequestFilter').addEventListener('change',()=>{if(authorized()&&!requestsLoading)renderRequests();});
+el('adminGoToPrice').addEventListener('click',()=>{if(authorized())checkReservationPrice();});
 onAuthStateChanged(auth,user=>{
  clearPrivate();
  if(user?.uid!==ADMIN_UID){el('adminStatus').textContent=user?'Esta cuenta no tiene acceso de administración.':'Iniciá sesión desde la página principal y volvé acá.';return;}

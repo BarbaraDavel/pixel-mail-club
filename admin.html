@@ -36,6 +36,12 @@
    <p id="capacityNote" class="admin-muted"></p>
    <section class="admin-card requests-section" id="requestsSection" role="tabpanel" aria-labelledby="tabRequests" tabindex="0">
     <div class="requests-heading"><div><h3 id="requestsTitle">Solicitudes recibidas 💌</h3><p class="admin-muted">Nueva consulta → Contactada → Crear reserva. Cambiar el estado no envía mensajes.</p></div><button id="adminRequestsRefresh" type="button">Actualizar solicitudes</button></div>
+    <div class="request-filters">
+     <label>Buscar solicitud<input id="adminRequestSearch" type="search" maxlength="150" placeholder="Nombre, apodo, email o teléfono" autocomplete="off" aria-describedby="adminRequestSearchHint"></label>
+     <label>Mostrar<select id="adminRequestFilter"><option value="ACTIVAS">Sin archivar</option><option value="NUEVA_CONSULTA">Nuevas consultas</option><option value="CONTACTADA">Contactadas</option><option value="ARCHIVADA">Archivadas</option><option value="TODAS">Todas</option></select></label>
+    </div>
+    <p id="adminRequestSearchHint" class="admin-muted">La búsqueda y los filtros se aplican a las solicitudes cargadas de esta edición. Usá «Ver más solicitudes» para incluir las anteriores.</p>
+    <div id="adminReservationNotice" class="reservation-notice" hidden><p>Primero definí el precio de esta edición para crear reservas. Podés seguir recibiendo y organizando solicitudes.</p><button id="adminGoToPrice" type="button" class="secondary">Definir precio en Ediciones</button></div>
     <p id="adminRequestsStatus" role="status"></p><div id="adminRequests" class="request-list"></div>
     <button id="adminRequestsMore" type="button" hidden>Ver más solicitudes</button>
    </section>

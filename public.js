@@ -8,9 +8,13 @@ const setText=(id,value)=>{const el=$(id);if(el)el.textContent=value;};
 function applyEdition(data){if(!data)return;setText('#editionTitle',data.nombre||'Pixel Mail Club');setText('#editionDescription',data.descripcion||data.periodo||'');setText('#editionBadge',`EDICIÓN ${data.id||'001'} · ${(data.periodo||'').toUpperCase()}`);setText('#selectedEdition',`Edición ${data.id||'001'} · ${data.periodo||''}`);const list=$('#editionContents');if(list&&Array.isArray(data.contenido)){list.replaceChildren(...data.contenido.map(item=>{const li=document.createElement('li');li.textContent=item;return li;}));}document.body.dataset.theme=/^[a-z-]+$/.test(data.tema||'')?data.tema:'navidad';if(data.imagen&&/^\.\.?\/[a-zA-Z0-9_./-]+$/.test(data.imagen)){const art=$('.hero-art');if(art)art.src=data.imagen;}}
 const endpoint=(action)=>MAILCLUB_API_URL.replace(/\/$/,'')+'/'+action;
 function showPrice(){
- const qty=Number(form.elements.cantidad.value||0), valid=Number.isSafeInteger(qty)&&qty>=1&&qty<=10;
+ const qty=Number(form.elements.cantidad.value||0), valid=Number.isSafeInteger(qty)&&qty>=1&&qty<=20;
  $('#unitPrice').textContent=edition?money(edition.precio):'—';
  $('#totalPrice').textContent=edition&&valid?money(edition.precio*qty):'—';
+ const shipping=$('#shippingEstimate'), grand=$('#grandTotal');
+ const local=form.elements.entrega.value==='local';
+ if(shipping)shipping.textContent=local?'Gratis':'A cotizar';
+ if(grand)grand.textContent=edition&&valid&&local?money(edition.precio*qty):'A confirmar';
  button.disabled=!edition||!valid||!MAILCLUB_API_URL;
 }
 async function loadEdition(){
@@ -21,6 +25,13 @@ async function loadEdition(){
  }catch(err){status.textContent=err.message;$('#editionPrice').textContent='Inscripciones temporalmente no disponibles.';}
 }
 form.elements.cantidad.addEventListener('input',showPrice);
+form.elements.entrega.addEventListener('change',()=>{
+ const local=form.elements.entrega.value==='local';
+ const addr=form.elements.direccion.closest('label');
+ if(addr)addr.hidden=local||form.elements.entrega.value==='sucursal';
+ showPrice();
+});
+form.elements.entrega.dispatchEvent(new Event('change'));
 form.addEventListener('submit',async event=>{event.preventDefault();if(!form.reportValidity()||!edition)return;const fd=new FormData(form);const data=Object.fromEntries(fd.entries());data.cantidad=Number(data.cantidad);data.comunicaciones=fd.has('comunicaciones');data.edicionId=edition.id;delete data.condiciones;
  button.disabled=true;status.textContent='Registrando tu solicitud…';$('#transferInstructions').hidden=true;
  try{const res=await fetch(endpoint('subscribe'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const json=await res.json();if(!res.ok)throw new Error(json.error||'No se pudo registrar la solicitud');

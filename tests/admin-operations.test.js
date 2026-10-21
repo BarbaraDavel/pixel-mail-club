@@ -173,6 +173,6 @@ test('retiro inicia plazo con envío cero y las operaciones nuevas requieren adm
  await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'solicitudes','local'),{...request,entrega:'local'}));
  await ops.reservarSolicitud('local');
  await assert.rejects(makeOps({uid:'otra',isAnonymous:false}).iniciarPlazoPago('solicitud_local',{comunicado:true}),/denegado/);
- await ops.iniciarPlazoPago('solicitud_local',{comunicado:true});
+ await ops.iniciarPlazoPago('solicitud_local',{comunicado:true,instruccionesPago:'Coordinación de retiro por WhatsApp'});
  assert.equal((await value('reservas','solicitud_local')).costoEnvio,0);
 });

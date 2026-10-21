@@ -53,8 +53,8 @@
 .admin-toolbar button,.secondary{width:auto;background:#f3e9e4;color:#6e504d;border:1px solid #e3d2ca}
 .admin-toolbar button{margin-bottom:15px}
 .admin-nav{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 28px}
-.admin-nav a{padding:10px 14px;background:#f7eae3;border-radius:100px;text-decoration:none;color:#765652;font-size:13px}
-.admin-nav a:hover{background:#ecd7d0}
+.admin-nav [role="tab"]{padding:10px 14px;background:#f7eae3;border-radius:100px;text-decoration:none;color:#765652;font-size:13px}
+.admin-nav [role="tab"]:hover{background:#ecd7d0}
 .requests-section{scroll-margin-top:20px}
 .requests-section>.request-list{margin-top:22px}
 .request-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -108,3 +108,11 @@
  .admin-nav a{padding:9px 11px;font-size:12px}
  .order-form{padding:18px 20px}
 }
+
+/* Pestañas: una sola sección visible y controles con estado accesible. */
+.admin-nav [role="tab"]{width:auto;border:1px solid transparent;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.admin-nav [role="tab"][aria-selected="true"]{background:#a96c68;color:#fff;border-color:#a96c68;box-shadow:0 3px 10px #a96c6820}
+.admin-nav [role="tab"]:focus-visible{outline:3px solid #a96c68;outline-offset:3px}
+[role="tabpanel"]:focus-visible{outline:2px solid #a96c68;outline-offset:4px}
+[role="tabpanel"][hidden]{display:none!important}
+@media(max-width:760px){.admin-nav [role="tab"]{padding:9px 11px;font-size:12px}}

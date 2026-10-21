@@ -5,11 +5,13 @@ import {protegerApp} from './app-check.js';
 import {firebaseConfig} from './v12-firebase-config.js';
 import {calcularCupos} from './reservas-cupos.js';
 import {crearGestion,ADMIN_UID} from './admin-operations.js';
+import {initAdminTabs} from './admin-tabs.js';
 const app=getApps().length?getApp():initializeApp(firebaseConfig);
 protegerApp(app);
 const auth=getAuth(app),db=getFirestore(app);
 const gestion=crearGestion({db,doc,collection,runTransaction,serverTimestamp,Timestamp,currentUser:()=>auth.currentUser});
 const el=id=>document.getElementById(id);
+const tabs=initAdminTabs();
 const node=(tag,cls,value)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(value!==undefined)n.textContent=value;return n;};
 const money=n=>Number.isSafeInteger(n)?new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n):'Sin registrar';
 const millis=v=>v?.toMillis?.()??Date.parse(v);
@@ -47,7 +49,7 @@ async function loadPanel(){
   if(!editions.some(e=>e.id===selected))selected=editions[0]?.id||'';
   options.value=selected;
   el('adminContent').hidden=false;el('adminStatus').textContent='Solo vos podés acceder a esta gestión. Los pagos públicos siguen deshabilitados.';
-  renderEdition();renderReservations();fillEditionForm();
+  renderEdition();renderReservations();fillEditionForm();tabs.restore();
   await resetRequests();
  }catch(error){if(ticket===generation&&authorized()){el('adminStatus').textContent='No se pudo cargar el taller: '+(error.code||error.message);el('adminStatus').className='admin-error';}}
  finally{if(ticket===generation)panelLoading=false;}
@@ -170,7 +172,7 @@ function renderRequests(){
    actions.append(makeButton('Crear reserva · 48 h',async()=>{
     const ok=await dialog('Reservar sus cartitas 💌','Se reservarán '+r.cantidad+' cupos para '+r.nombre+' durante 48 horas. Esto no cobra ni envía mensajes. El precio actual de la edición quedará guardado en la reserva.');
     if(!ok)return;
-    await gestion.reservarSolicitud(r.id);await loadPanel();feedback('Reserva creada una sola vez. Podés verla en Reservas.');
+    await gestion.reservarSolicitud(r.id);await loadPanel();tabs.show('reservationsSection');feedback('Reserva creada una sola vez. Podés verla en Reservas.');
    }));
   }else actions.append(node('p','admin-muted','Archivada. Podés cambiarla a Contactada para retomarla.'));
   footer.append(actions,label);card.append(footer);container.append(card);
@@ -221,7 +223,7 @@ async function confirmPayment(r){
  const result=await dialog('Confirmar pedido 💌',(r.cliente?.nombre||r.referencia||'Reserva')+' · '+r.cantidad+' cartitas. '+(r.subtotal?money(r.subtotal)+' de cartitas. ':'')+'Esta acción registra tu verificación manual; no realiza ningún cobro.',fields);
  if(!result)return;
  await gestion.cambiarReserva(r.id,'CONFIRMADA',{verificado:result.has('verificado'),costoEnvio:result.get('costoEnvio'),subtotalLegacy:result.get('subtotalLegacy')});
- await loadPanel();feedback('Pago registrado. El pedido ya aparece en Pedidos confirmados.');
+ await loadPanel();tabs.show('ordersSection');feedback('Pago registrado. El pedido ya aparece en Pedidos confirmados.');
 }
 function orderForm(r){
  const details=node('details','order-form'),summary=node('summary','','Preparación y seguimiento');
@@ -245,7 +247,7 @@ el('adminNewReservation').addEventListener('submit',event=>{
   const data=new FormData(f),id=selected;
   const ok=await dialog('Crear reserva manual','La reserva ocupará '+data.get('cantidad')+' cupos durante 48 horas en la edición '+id+'. Para conservar datos de una solicitud, creala desde su tarjeta.');
   if(!ok)return;
-  await gestion.reservaManual(id,data.get('referencia'),data.get('cantidad'));f.reset();await loadPanel();feedback('Reserva manual creada.');
+  await gestion.reservaManual(id,data.get('referencia'),data.get('cantidad'));f.reset();await loadPanel();tabs.show('reservationsSection');feedback('Reserva manual creada.');
  });
 });
 el('adminEditionForm').addEventListener('submit',event=>{

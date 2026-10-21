@@ -21,8 +21,11 @@
     <label>Edición que querés gestionar<select id="adminEditionSelect"></select></label>
     <button id="adminRefresh" class="secondary" type="button">Actualizar todo</button>
    </div>
-   <nav class="admin-nav" aria-label="Secciones de administración">
-    <a href="#requestsSection">Solicitudes</a><a href="#reservationsSection">Reservas</a><a href="#ordersSection">Pedidos confirmados</a><a href="#editionsSection">Ediciones</a>
+   <nav class="admin-nav" role="tablist" aria-label="Secciones de administración">
+    <button type="button" role="tab" id="tabRequests" data-panel="requestsSection" aria-controls="requestsSection" aria-selected="true">Solicitudes</button>
+    <button type="button" role="tab" id="tabReservations" data-panel="reservationsSection" aria-controls="reservationsSection" aria-selected="false" tabindex="-1">Reservas</button>
+    <button type="button" role="tab" id="tabOrders" data-panel="ordersSection" aria-controls="ordersSection" aria-selected="false" tabindex="-1">Pedidos confirmados</button>
+    <button type="button" role="tab" id="tabEditions" data-panel="editionsSection" aria-controls="editionsSection" aria-selected="false" tabindex="-1">Ediciones</button>
    </nav>
    <h2 id="adminEdition">Edición 001</h2><p id="adminState" class="admin-muted"></p>
    <div class="admin-metrics">
@@ -31,12 +34,12 @@
     <div>Disponibles<strong id="adminAvailable">—</strong></div>
    </div>
    <p id="capacityNote" class="admin-muted"></p>
-   <section class="admin-card requests-section" id="requestsSection" aria-labelledby="requestsTitle">
+   <section class="admin-card requests-section" id="requestsSection" role="tabpanel" aria-labelledby="tabRequests" tabindex="0">
     <div class="requests-heading"><div><h3 id="requestsTitle">Solicitudes recibidas 💌</h3><p class="admin-muted">Nueva consulta → Contactada → Crear reserva. Cambiar el estado no envía mensajes.</p></div><button id="adminRequestsRefresh" type="button">Actualizar solicitudes</button></div>
     <p id="adminRequestsStatus" role="status"></p><div id="adminRequests" class="request-list"></div>
     <button id="adminRequestsMore" type="button" hidden>Ver más solicitudes</button>
    </section>
-   <section class="admin-card requests-section" id="reservationsSection" aria-labelledby="reservationsTitle">
+   <section class="admin-card requests-section" id="reservationsSection" role="tabpanel" aria-labelledby="tabReservations" tabindex="0" hidden>
     <div class="requests-heading"><div><h3 id="reservationsTitle">Reservas 🦊</h3><p class="admin-muted">Guardan cupos durante 48 horas. Confirmá solo después de revisar el pago recibido.</p></div></div>
     <details class="manual-reservation"><summary>Crear una reserva manual</summary>
      <form id="adminNewReservation" class="admin-form compact-form">
@@ -49,11 +52,11 @@
     <div id="adminReservations" class="request-list"></div>
     <details class="manual-reservation"><summary>Ver canceladas y registros anteriores</summary><div id="adminReservationsHistory" class="request-list"></div></details>
    </section>
-   <section class="admin-card requests-section" id="ordersSection" aria-labelledby="ordersTitle">
+   <section class="admin-card requests-section" id="ordersSection" role="tabpanel" aria-labelledby="tabOrders" tabindex="0" hidden>
     <div class="requests-heading"><div><h3 id="ordersTitle">Pedidos confirmados ✨</h3><p class="admin-muted">Acá aparecen las reservas cuyo pago verificaste. Prepará las cartitas y registrá el despacho.</p></div></div>
     <div id="adminOrders" class="request-list"></div>
    </section>
-   <section class="admin-card requests-section" id="editionsSection" aria-labelledby="editionsTitle">
+   <section class="admin-card requests-section" id="editionsSection" role="tabpanel" aria-labelledby="tabEditions" tabindex="0" hidden>
     <div class="requests-heading"><div><h3 id="editionsTitle">Ediciones en preparación 🌿</h3><p class="admin-muted">Guardá nombre, contenido, precio y cupos como borrador. La página del cliente sigue como está.</p></div><button id="adminNewEdition" type="button" class="secondary">Nueva edición</button></div>
     <form id="adminEditionForm" class="admin-form">
      <div class="form-pair"><label>Número de edición<input name="id" maxlength="3" pattern="[0-9]{3}" required placeholder="002"></label><label>Período<input name="periodo" maxlength="100" required placeholder="Diciembre 2026"></label></div>

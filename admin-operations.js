@@ -108,7 +108,7 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
     const start=now();
     tx.update(ref,{estado:'PENDIENTE_PAGO',versionFlujo:2,costoEnvio:shipping,total:subtotal+shipping,
      pagoIniciadoEn:Timestamp.fromMillis(start),venceEn:Timestamp.fromMillis(start+48*3600000),
-     importeComunicadoEn:serverTimestamp(),comunicadoPor:currentUser().uid,actualizadaEn:serverTimestamp()});
+     importeComunicadoEn:serverTimestamp(),comunicadoPor:currentUser().uid,pagosHabilitados:true,instruccionesPago:paymentInstructions,actualizadaEn:serverTimestamp()});
    });
   },
   async cambiarReserva(id,next,{verificado=false,costoEnvio,subtotalLegacy}={}){

@@ -4,7 +4,8 @@ import {readFile} from 'node:fs/promises';
 import {initializeTestEnvironment,assertFails} from '@firebase/rules-unit-testing';
 import {doc,collection,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,Timestamp} from 'firebase/firestore';
 import {validarSolicitud} from '../solicitudes-validation.js';
-import {crearGestion,ADMIN_UID,validarEdicion} from '../admin-operations.js';
+import {crearGestion,ADMIN_UIDS,validarEdicion} from '../admin-operations.js';
+const ADMIN_UID=ADMIN_UIDS[0];
 let env,db,ops;
 const clock=Date.parse('2026-10-21T15:00:00Z');
 const edition={estado:'borrador',nombre:'Cartitas',periodo:'Diciembre 2026',descripcion:'Navidad',contenido:['Carta'],precio:5000,cupos:10,cuposReservados:0,versionGestion:0};
@@ -14,7 +15,7 @@ const makeOps=(user,firestore=db)=>crearGestion({db:firestore,doc,collection,run
 const value=async(path,id)=>(await getDoc(doc(db,path,id))).data();
 before(async()=>{env=await initializeTestEnvironment({projectId:'demo-pixel-mail-club',firestore:{rules:await readFile(new URL('../firestore.rules',import.meta.url),'utf8')}});});
 beforeEach(async()=>{
- await env.clearFirestore();db=env.authenticatedContext(ADMIN_UID).firestore();ops=makeOps({uid:ADMIN_UID});
+ await env.clearFirestore();db=env.authenticatedContext(ADMIN_UID,{firebase:{sign_in_provider:'password'}}).firestore();ops=makeOps({uid:ADMIN_UID,isAnonymous:false});
  await env.withSecurityRulesDisabled(async ctx=>{
   await setDoc(doc(ctx.firestore(),'ediciones','001'),edition);
   await setDoc(doc(ctx.firestore(),'solicitudes','001_a'),{...request,creadaEn:serverTimestamp()});

@@ -1,5 +1,6 @@
 // Operaciones privadas. El SDK se inyecta para probar las mismas transacciones en el emulador.
-export const ADMIN_UID='LSf6e03U0xfPDVG3Wmam9BXuAm13';
+export const ADMIN_UIDS=Object.freeze(['aDYubwS1BnXvMKKPbLiB0tLI5wz1','LSf6e03U0xfPDVG3Wmam9BXuAm13']);
+export const esAdmin=user=>user?.isAnonymous===false&&ADMIN_UIDS.includes(user.uid);
 const fail=message=>{throw new Error(message);};
 const integer=(value,min,max,label)=>{
  if(value===null||value===undefined||typeof value==='boolean'||String(value).trim()==='')fail('Completá '+label+'.');
@@ -36,7 +37,7 @@ function prices(edition,qty){
  return {precioUnitario:unit,subtotal};
 }
 export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,Timestamp,currentUser,now=()=>Date.now()}){
- const admin=()=>{if(currentUser()?.uid!==ADMIN_UID)fail('Acceso denegado. Iniciá sesión con tu cuenta administradora.');};
+ const admin=()=>{if(!esAdmin(currentUser()))fail('Acceso denegado. Iniciá sesión con tu cuenta administradora.');};
  return {
   async guardarEdicion(raw,expectedVersion=null){
    admin();const data=validarEdicion(raw),ref=doc(db,'ediciones',data.id);

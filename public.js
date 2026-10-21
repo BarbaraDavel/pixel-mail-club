@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged, signInAnonymously } from 'https://www.gsta
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js';
 import { firebaseConfig } from './v12-firebase-config.js';
 import { validarSolicitud } from './solicitudes-validation.js';
+import { esAdmin } from './admin-operations.js';
 import { protegerApp } from './app-check.js';
 const $=s=>document.querySelector(s);
 const form=$('#signup'), status=$('#status'), button=$('#submit');
@@ -11,11 +12,15 @@ let edition=null;
 let sending=false, submitted=false;
 const openedAt=Date.now();
 const adminTest=document.body.dataset.intake==='admin-test';
-const adminUid='LSf6e03U0xfPDVG3Wmam9BXuAm13';
-// Un ID por carga: los reintentos no duplican; recargar permite otra prueba privada.
-const testRequestId=adminTest?'999_'+adminUid+'_'+crypto.randomUUID():null;
+// Un ID estable por cuenta y carga: reintentar no duplica solicitudes.
+const testRequestIds=new Map();
+function testRequestId(user){
+ if(!esAdmin(user))throw new Error('admin-required');
+ if(!testRequestIds.has(user.uid))testRequestIds.set(user.uid,'999_'+user.uid+'_'+crypto.randomUUID());
+ return testRequestIds.get(user.uid);
+}
 let testReady=false;
-const testAllowed=()=>testReady&&auth.currentUser?.uid===adminUid;
+const testAllowed=()=>testReady&&esAdmin(auth.currentUser);
 
 const firebaseApp=getApps().length?getApp():initializeApp(firebaseConfig);
 protegerApp(firebaseApp);
@@ -44,7 +49,7 @@ async function loadTestEdition(){
   testReady=false;edition=null;form.hidden=true;form.reset();showPrice();
   const banner=$('#testStatus');
   banner.textContent='Ingresá con tu cuenta administradora desde la página principal y volvé a abrir esta prueba.';
-  if(user?.uid!==adminUid)return;
+  if(!esAdmin(user))return;
   banner.textContent='Cargando la edición privada 999…';
   try{
    const snapshot=await getDoc(doc(firestore,'ediciones','999'));
@@ -116,8 +121,9 @@ form.addEventListener('submit',async event=>{
  try{
   if(adminTest){
    if(!testAllowed())throw new Error('admin-required');
-   await setDoc(doc(firestore,'solicitudes',testRequestId),{
-    ...data,edicionId:'999',uid:adminUid,estado:'NUEVA_CONSULTA',creadaEn:serverTimestamp()
+   const user=auth.currentUser;
+   await setDoc(doc(firestore,'solicitudes',testRequestId(user)),{
+    ...data,edicionId:'999',uid:user.uid,estado:'NUEVA_CONSULTA',creadaEn:serverTimestamp()
    });
   }else{
   await intakeAuth.authStateReady();
@@ -136,7 +142,7 @@ form.addEventListener('submit',async event=>{
  }catch(error){
   if(adminTest&&!testAllowed())return;
   status.textContent=adminTest
-   ?'No pudimos confirmar la recepción de prueba. Publicá las reglas actualizadas de firestore.rules y verificá que la edición 999 siga en borrador. Reintentá sin recargar para no duplicar.'
+   ?'No pudimos confirmar la recepción de prueba. Verificá con la persona responsable las reglas autorizadas y que la edición 999 siga en borrador. Reintentá sin recargar para no duplicar.'
    :error.code==='permission-denied'
    ?'No se pudo guardar. Si ya enviaste una solicitud desde este navegador, no hace falta repetirla. Si es la primera, contactá a Pixel para revisar la recepción.'
    :error.code==='auth/operation-not-allowed'
@@ -166,4 +172,3 @@ nextButton.addEventListener('click',()=>{
  setStep(Math.min(currentStep+1,stepSections.length-1));
 });
 prevButton.addEventListener('click',()=>setStep(Math.max(currentStep-1,0)));
-

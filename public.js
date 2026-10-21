@@ -23,13 +23,14 @@ function showPrice(){
  const local=form.elements.entrega.value==='local';
  if(shipping)shipping.textContent=local?'Sin costo':'A cotizar';
  if(grand)grand.textContent=priceValid&&valid&&local?money(edition.precio*qty):'A confirmar';
- button.disabled=DEMO_MODE||!edition||!valid||!MAILCLUB_API_URL;
+ button.disabled=!valid;
+ button.textContent=DEMO_MODE?'Enviar solicitud por WhatsApp 💌':'Continuar con la inscripción';
 }
 async function loadEdition(){
  if(DEMO_MODE){
   try{const r=await fetch('./edition-preview.json',{cache:'no-store'});if(r.ok)applyEdition(await r.json());}catch(e){console.warn('Vista previa sin archivo de edición:',e);}
-  status.textContent='Vista previa: las reservas y los pagos todavía están deshabilitados.';
-  $('#editionPrice').textContent='Precio final pendiente de publicación. Las reservas todavía no están habilitadas.';
+  status.textContent='Podés enviar una consulta por WhatsApp. Esto no reserva cupos ni inicia las 48 horas de pago.';
+  $('#editionPrice').textContent='Precio próximamente. Podés consultar por WhatsApp, sin compromiso ni reserva de cupo.';
   showPrice();
   onAuthStateChanged(auth,async user=>{
     try{
@@ -66,7 +67,17 @@ form.elements.entrega.addEventListener('change',()=>{
  showPrice();
 });
 form.elements.entrega.dispatchEvent(new Event('change'));
-form.addEventListener('submit',async event=>{event.preventDefault();if(!form.reportValidity()||!edition)return;const fd=new FormData(form);const data=Object.fromEntries(fd.entries());data.cantidad=Number(data.cantidad);data.comunicaciones=fd.has('comunicaciones');data.edicionId=edition.id;delete data.condiciones;
+form.addEventListener('submit',async event=>{event.preventDefault();if(!form.reportValidity())return;const fd=new FormData(form);const data=Object.fromEntries(fd.entries());data.cantidad=Number(data.cantidad);data.comunicaciones=fd.has('comunicaciones');data.edicionId=edition?.id||'001';delete data.condiciones;
+ if(DEMO_MODE){
+  const delivery={domicilio:'A domicilio',sucursal:'A sucursal',local:'Retiro a convenir en Posadas'}[data.entrega]||data.entrega;
+  const lines=['Hola, Pixel! 💌 Quiero consultar por el Mail Club.','Edición: Cartitas bajo el árbol (001)','Sobres: '+data.cantidad,'Nombre: '+data.nombre,'Apodo: '+(data.apodo||'—'),'Email: '+data.email,'WhatsApp: '+data.telefono,'Entrega: '+delivery,'Localidad: '+data.localidad,'Provincia: '+data.provincia,'Código postal: '+data.codigoPostal];
+  if(data.entrega==='domicilio'&&data.direccion)lines.push('Dirección: '+data.direccion);
+  lines.push('Sé que el precio está pendiente de publicación y que esta consulta no reserva cupos.');
+  const url='https://wa.me/5493764297950?text='+encodeURIComponent(lines.join('\\n'));
+  status.textContent='Se abrirá WhatsApp con tu consulta. Revisá el mensaje y tocá Enviar para comunicártelo a Pixel. Esto no reserva cupos.';
+  window.open(url,'_blank','noopener,noreferrer');
+  return;
+ }
  button.disabled=true;status.textContent='Registrando tu solicitud…';$('#transferInstructions').hidden=true;
  try{const res=await fetch(endpoint('subscribe'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const json=await res.json();if(!res.ok)throw new Error(json.error||'No se pudo registrar la solicitud');
  if(json.checkoutUrl){location.assign(json.checkoutUrl);return;}

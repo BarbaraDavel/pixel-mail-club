@@ -124,6 +124,11 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
    admin();const state=raw.preparacion;
    if(!['PENDIENTE','EN_PREPARACION','LISTA','DESPACHADA','ENTREGADA'].includes(state))fail('Estado de preparación inválido.');
    const tracking=text(raw.seguimiento,100,'el seguimiento'),date=text(raw.fechaDespacho,10,'la fecha de despacho');
+   const correo=text(raw.correo,80,'la empresa de correo'),urlSeguimiento=text(raw.urlSeguimiento,1000,'el enlace de seguimiento');
+   if(urlSeguimiento){
+    let url;try{url=new URL(urlSeguimiento);}catch{fail('Enlace de seguimiento inválido.');}
+    if(url.protocol!=='https:'||url.username||url.password)fail('El enlace de seguimiento debe ser HTTPS y sin credenciales.');
+   }
    const parsed=new Date(date+'T12:00:00Z');
    if(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date))fail('Revisá la fecha de despacho.');
    if(date&&date>new Date(now()).toLocaleDateString('en-CA',{timeZone:'America/Argentina/Buenos_Aires'}))fail('La fecha de despacho no puede ser futura.');
@@ -131,8 +136,8 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
    await runTransaction(db,async tx=>{
     admin();const snap=await tx.get(ref);if(!snap.exists()||snap.data().estado!=='CONFIRMADA')fail('Solo se puede preparar un pedido confirmado.');
     const local=snap.data().cliente?.entrega==='local';
-    if(['DESPACHADA','ENTREGADA'].includes(state)&&!local&&(!tracking||!date))fail('Completá seguimiento y fecha de despacho para el envío.');
-    tx.update(ref,{preparacion:state,seguimiento:tracking,fechaDespacho:date,actualizadaEn:serverTimestamp()});
+    if(['DESPACHADA','ENTREGADA'].includes(state)&&!local&&(!tracking||!date||!correo))fail('Completá empresa de correo, seguimiento y fecha de despacho para el envío.');
+    tx.update(ref,{preparacion:state,seguimiento:tracking,fechaDespacho:date,correo,urlSeguimiento,actualizadaEn:serverTimestamp()});
    });
   }
  };

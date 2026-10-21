@@ -36,7 +36,7 @@ function showPrice(){
  const local=form.elements.entrega.value==='local';
  if(shipping)shipping.textContent=local?'Sin costo':'A cotizar';
  if(grand)grand.textContent=priceValid&&valid&&local?money(edition.precio*qty):'A confirmar';
- button.disabled=!valid||sending||submitted||(adminTest&&!testAllowed());
+ button.disabled=!valid||sending||submitted||(adminTest?!testAllowed():edition?.estado!=='publicada');
  button.textContent=submitted?'Solicitud recibida 💌':sending?'Enviando…':'Enviar solicitud privada 💌';
 }
 async function loadTestEdition(){
@@ -63,20 +63,35 @@ async function loadTestEdition(){
  });
 }
 async function loadEdition(){
- try{const r=await fetch('./edition-preview.json',{cache:'no-store'});if(r.ok)applyEdition(await r.json());}catch{}
- status.textContent='Podés enviar una solicitud privada. No reserva cupos ni inicia las 48 horas de pago.';
- $('#editionPrice').textContent='Precio por definir · envío a cotizar. Los pagos todavía no están habilitados.';
+ const summary=$('#selectedEdition');
+ const price=$('#editionPrice');
+ summary.textContent='Consultando edición disponible…';
+ status.textContent='';
+ price.textContent='Los pagos todavía no están habilitados.';
+ button.disabled=true;
+ try{
+  const snapshot=await getDoc(doc(firestore,'ediciones','001'));
+  if(!snapshot.exists()||snapshot.data().estado!=='publicada'){
+   edition=null;
+   summary.textContent='Las inscripciones todavía no están abiertas.';
+   price.textContent='Próximamente anunciaremos la próxima edición.';
+   status.textContent='Todavía no se pueden enviar solicitudes.';
+  }else{
+   edition={id:snapshot.id,...snapshot.data()};
+   applyEdition(edition);
+   status.textContent='Podés enviar una solicitud privada. No reserva cupos ni inicia las 48 horas de pago.';
+   price.textContent='Precio por definir · envío a cotizar. Los pagos todavía no están habilitados.';
+  }
+ }catch(error){
+  edition=null;
+  summary.textContent='No pudimos consultar las ediciones.';
+  price.textContent='Intentá nuevamente más tarde.';
+  status.textContent='La inscripción está temporalmente no disponible.';
+  console.error('Error al cargar la edición pública:',error);
+ }
  showPrice();
- onAuthStateChanged(auth,async user=>{
-  if(user?.uid!=='LSf6e03U0xfPDVG3Wmam9BXuAm13'){edition=null;showPrice();return;}
-  try{
-   const snapshot=await getDoc(doc(firestore,'ediciones','001'));
-   if(!snapshot.exists()||auth.currentUser?.uid!==user.uid)return;
-   // La vista pública usa únicamente el archivo de presentación; no publica el borrador.
-   edition={id:snapshot.id,...snapshot.data()};showPrice();
-  }catch{edition=null;showPrice();}
- });
 }
+
 form.elements.cantidad.addEventListener('input',showPrice);
 form.elements.entrega.addEventListener('change',()=>{
  const local=form.elements.entrega.value==='local';
@@ -90,6 +105,7 @@ form.addEventListener('submit',async event=>{
  event.preventDefault();
  if(sending||submitted)return;
  if(adminTest&&!testAllowed())return;
+ if(!adminTest&&edition?.estado!=='publicada'){status.textContent='Las inscripciones no están abiertas.';return;}
  if(!form.reportValidity())return;
  const fd=new FormData(form);
  if(fd.get('website')||Date.now()-openedAt<3000){status.textContent='Esperá unos segundos y revisá tus datos antes de enviar.';return;}

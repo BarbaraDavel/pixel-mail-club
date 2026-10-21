@@ -60,6 +60,7 @@ async function sourceRecord(event,id){
  if(!snap.exists)fail('not-found','No se encontró la reserva.');
  const d=snap.data();
  if(event==='reserva'&&!['PENDIENTE_COTIZACION','PENDIENTE_PAGO'].includes(d.estado))fail('failed-precondition','La reserva no está pendiente.');
+ if(event==='reserva'&&d.estado==='PENDIENTE_PAGO'&&(d.pagosHabilitados!==true||!str(d.instruccionesPago)))fail('failed-precondition','No se envía la reserva hasta que estén guardadas las instrucciones de pago.');
  if(event==='pago'&&!(d.estado==='CONFIRMADA'&&d.pagoVerificadoEn))fail('failed-precondition','Solo se puede notificar un pago ya verificado por administración.');
  if(event==='despacho'&&!(d.estado==='CONFIRMADA'&&d.preparacion==='DESPACHADA'))fail('failed-precondition','Marcá el pedido como despachado antes de notificarlo.');
  return {ref,data:d};

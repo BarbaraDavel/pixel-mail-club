@@ -72,7 +72,8 @@ export const enviarCorreoMailClub=onCall({region:'southamerica-east1',secrets:[c
  const {ref,data}=await sourceRecord(event,id);
  const to=emailAddress(data);
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to))fail('failed-precondition','El documento no contiene un correo válido.');
- const stage=event==='reserva'?'_'+str(data.estado):'';\n const eventId=event+'_'+id+stage;
+ const stage=event==='reserva'?'_'+str(data.estado):'';
+ const eventId=event+'_'+id+stage;
  const dispatchRef=db.collection('emailDispatches').doc(eventId);
  const existing=await dispatchRef.get();
  if(existing.exists&&existing.data().status==='SENT')return {sent:false,duplicate:true,message:'Este correo ya figura como enviado.'};

@@ -116,3 +116,11 @@ test('clientes no pueden crear ni modificar outbox; administradoras solo leen',a
  await assertFails(getDocs(collection(anon('a'),'emailOutbox')));
  await assertSucceeds(getDocs(collection(adb,'emailOutbox')));
 });
+
+test('solo administración inicia el plazo o cancela reservas en cotización',async()=>{
+ await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'reservas','cotizacion'),{edicionId:'001',estado:'PENDIENTE_COTIZACION',cantidad:1,venceEn:null}));
+ for(const db of [anon('a'),env.unauthenticatedContext().firestore(),env.authenticatedContext('otra').firestore()]){
+  await assertFails(updateDoc(doc(db,'reservas','cotizacion'),{estado:'PENDIENTE_PAGO',costoEnvio:0,venceEn:Timestamp.fromMillis(Date.now()+48*3600000)}));
+  await assertFails(updateDoc(doc(db,'reservas','cotizacion'),{estado:'CANCELADA'}));
+ }
+});

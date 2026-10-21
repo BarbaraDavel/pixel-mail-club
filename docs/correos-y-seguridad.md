@@ -30,7 +30,7 @@ await integracion.onDocumentWritten({
 ```
 
 Registrar solo `solicitudes/{id}` y `reservas/{id}`; nunca el outbox. Solicitud: creación
-NUEVA_CONSULTA. Reserva: creación PENDIENTE_PAGO. Pago: transición a CONFIRMADA y
+NUEVA_CONSULTA. Reserva: transición PENDIENTE_COTIZACION → PENDIENTE_PAGO (o creación legacy PENDIENTE_PAGO). Pago: transición a CONFIRMADA y
 `pagoVerificadoEn` presente. Despacho: transición a DESPACHADA de un pedido CONFIRMADA.
 El panel ahora permite cargar empresa y enlace de seguimiento, además de fecha y número.
 El retiro local no genera un falso correo de despacho: si faltan datos postales se bloquea;
@@ -89,3 +89,28 @@ duplicados concurrentes y bloqueo de envíos. `npm run test:rules` usa únicamen
 `demo-pixel-mail-club` y prueba apertura/cierre, borrador, 999 y privacidad del outbox.
 Los tests no contienen proveedor de email ni pueden enviar mensajes.
 La revisión visual en clientes reales y el worker de entrega quedan pendientes de autorización.
+
+
+## Reserva de cupos y comienzo del plazo
+
+Las nuevas reservas (también las manuales) usan `versionFlujo: 2`, estado
+`PENDIENTE_COTIZACION` y `venceEn: null`. Ocupan cupos inmediatamente, sin vencimiento
+por tiempo de cotización. Se pueden cancelar en cualquier momento para liberar los
+cupos una sola vez. Revisar periódicamente las cotizaciones pendientes; no caducan solas.
+
+`iniciarPlazoPago` exige el costo de envío en pesos enteros (cero para retiro local) y la
+confirmación explícita de haber comunicado el total y las instrucciones al comprador.
+Registra `costoEnvio`, `total`, `importeComunicadoEn`, `comunicadoPor`, `pagoIniciadoEn`
+y `venceEn` exactamente 48 horas después, pasando a `PENDIENTE_PAGO`. No vuelve a tocar
+cupos y no reinicia el reloj ante reintentos. La operación registra una comunicación
+manual: no envía correos ni habilita pagos electrónicos. El reloj depende del equipo
+administrativo como el flujo anterior; mantener su hora sincronizada.
+
+La confirmación de pago se bloquea durante la cotización. En reservas v2 exige el inicio
+y la comunicación registrados y utiliza el envío ya acordado, sin permitir sustituirlo
+al confirmar el pago. Las reservas previas sin versionFlujo mantienen su vencimiento y
+confirmación actuales; no hay migración ni actualización de datos históricos.
+
+La plantilla de reserva distingue cotización de plazo activo. El evento automático
+preparado se genera al iniciar las 48 horas, no al guardar cupos en cotización. Se mantiene
+su clave única por reserva y evento, y todos los envíos continúan desactivados.

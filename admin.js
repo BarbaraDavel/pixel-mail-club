@@ -16,7 +16,7 @@ const node=(tag,cls,value)=>{const n=document.createElement(tag);if(cls)n.classN
 const money=n=>Number.isSafeInteger(n)?new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n):'Sin registrar';
 const millis=v=>v?.toMillis?.()??Date.parse(v);
 const date=v=>{const ms=millis(v);return Number.isFinite(ms)?new Date(ms).toLocaleString('es-AR'):'—';};
-const states={PENDIENTE_PAGO:'Pendiente de pago',CONFIRMADA:'Pedido confirmado',CANCELADA:'Cancelada',VENCIDA:'Vencida · cerrar para liberar cupos',PRUEBA:'Registro de prueba'};
+const states={PENDIENTE_COTIZACION:'Pendiente de cotización · sin plazo',PENDIENTE_PAGO:'Pendiente de pago',CONFIRMADA:'Pedido confirmado',CANCELADA:'Cancelada',VENCIDA:'Vencida · cerrar para liberar cupos',PRUEBA:'Registro de prueba'};
 const preparation={PENDIENTE:'Por preparar',EN_PREPARACION:'En preparación',LISTA:'Lista para entregar',DESPACHADA:'Despachada',ENTREGADA:'Entregada'};
 const delivery={domicilio:'A domicilio',sucursal:'A sucursal',local:'Retiro a convenir en Posadas'};
 let editions=[],reservations=[],selected=new URLSearchParams(window.location.search).get('edicion')==='999'?'999':'001',loadedRequests=[],cursor=null,moreRequests=false;
@@ -187,7 +187,7 @@ function renderRequests(){
   }else if(r.estado!=='ARCHIVADA'){
    actions.append(makeButton('Crear reserva · 48 h',async()=>{
     if(!checkReservationPrice())return;
-    const ok=await dialog('Reservar sus cartitas 💌','Se reservarán '+r.cantidad+' cupos para '+r.nombre+' durante 48 horas. Esto no cobra ni envía mensajes. El precio actual de la edición quedará guardado en la reserva.');
+    const ok=await dialog('Reservar sus cartitas 💌','Se reservarán '+r.cantidad+' cupos para '+r.nombre+'. Quedará pendiente de cotización, sin iniciar las 48 horas. Esto no cobra ni envía mensajes. El precio actual de la edición quedará guardado en la reserva.');
     if(!ok)return;
     await gestion.reservarSolicitud(r.id);await loadPanel();tabs.show('reservationsSection');feedback('Reserva creada una sola vez. Podés verla en Reservas.');
    }));
@@ -214,15 +214,16 @@ function renderReservations(){
   const card=cardHeader(c.nombre||r.referencia||'Registro anterior',c.apodo?'Le gusta que le digan '+c.apodo:r.solicitudId?'Desde una solicitud':'Reserva manual · datos históricos',badge,confirmed?'order-card':'reservation-card');
   card.id='registro-'+r.id;
   const grid=node('div','request-data-grid');
-  group(grid,'Su cartita',[['Edición',r.edicionId],['Cantidad',r.cantidad+' cartitas'],['Creada',date(r.creadaEn)],...(confirmed?[['Pago verificado',r.pagoVerificadoEn?date(r.pagoVerificadoEn):'Confirmación anterior']]:[['Vence',date(r.venceEn)]])]);
+  group(grid,'Su cartita',[['Edición',r.edicionId],['Cantidad',r.cantidad+' cartitas'],['Creada',date(r.creadaEn)],...(confirmed?[['Pago verificado',r.pagoVerificadoEn?date(r.pagoVerificadoEn):'Confirmación anterior']]:[['Vence',r.estado==='PENDIENTE_COTIZACION'?'Sin iniciar':date(r.venceEn)]])]);
   group(grid,'Importes',[['Cartitas',money(r.subtotal)],['Envío',r.costoEnvio==null?'A cotizar':money(r.costoEnvio)],['Total',r.total!=null?money(r.total):Number.isSafeInteger(r.subtotal)&&Number.isSafeInteger(r.costoEnvio)?money(r.subtotal+r.costoEnvio):'A confirmar']]);
   group(grid,'Persona y entrega',[['Email',c.email],['WhatsApp',c.telefono],['Modalidad',delivery[c.entrega]||c.entrega],['Destino',[c.direccion,c.localidad,c.provincia,c.codigoPostal].filter(Boolean).join(' · ')]]);
   card.append(grid);
   const footer=node('footer','request-card-footer'),info=node('div');
   info.append(node('p','',confirmed?'Preparación: '+(preparation[r.preparacion]||'Por preparar'):expired?'Cerrá la reserva para devolver los cupos a la edición.':'Los cupos se liberan únicamente al cancelar o cerrar la reserva.'),node('p','record-reference','Referencia: '+(r.referencia||'—')+' · ID '+r.id));
   const actions=node('div','request-actions');
-  if(r.estado==='PENDIENTE_PAGO'&&!unassigned){
-   if(!expired)actions.append(makeButton('Verificar pago y confirmar',()=>confirmPayment(r)));
+  if(['PENDIENTE_PAGO','PENDIENTE_COTIZACION'].includes(r.estado)&&!unassigned){
+   if(r.estado==='PENDIENTE_COTIZACION')actions.append(makeButton('Registrar envío e iniciar 48 horas',()=>startPaymentPeriod(r)));
+   if(r.estado==='PENDIENTE_PAGO'&&!expired)actions.append(makeButton('Verificar pago y confirmar',()=>confirmPayment(r)));
    actions.append(makeButton(expired?'Cerrar vencida':'Cancelar reserva',async()=>{
     const ok=await dialog(expired?'Cerrar reserva vencida':'Cancelar reserva','Se liberarán '+r.cantidad+' cupos. No se borrarán la reserva ni la solicitud.');
     if(!ok)return;
@@ -232,17 +233,31 @@ function renderReservations(){
   footer.append(info,actions);card.append(footer);
   if(unassigned){history.append(card);}
   else if(confirmed){card.append(orderForm(r));orders.append(card);}
-  else if(r.estado==='PENDIENTE_PAGO')pending.append(card);
+  else if(['PENDIENTE_PAGO','PENDIENTE_COTIZACION'].includes(r.estado))pending.append(card);
   else history.append(card);
  }
- if(!pending.children.length)empty(pending,'No hay reservas pendientes de pago en esta edición.');
+ if(!pending.children.length)empty(pending,'No hay reservas pendientes de cotización o pago en esta edición.');
  if(!history.children.length)empty(history,'No hay reservas canceladas ni registros anteriores.');
  if(!orders.children.length)empty(orders,'Los pedidos aparecerán acá cuando verifiques el pago de una reserva.');
+}
+async function startPaymentPeriod(r){
+ let shipping=0;
+ if(r.cliente?.entrega!=='local'){
+  const quote=await dialog('Registrar costo de envío',money(r.subtotal)+' de cartitas. El envío está a cargo del comprador. Registrá el costo confirmado para revisar el total.',[{name:'costoEnvio',label:'Costo de envío confirmado · ARS (0 si corresponde)',value:r.costoEnvio??''}]);
+  if(!quote)return;
+  shipping=Number(quote.get('costoEnvio'));
+ }
+ if(!Number.isSafeInteger(shipping)||shipping<0||shipping>100000000)throw new Error('Revisá el costo de envío.');
+ const total=r.subtotal+shipping;
+ const result=await dialog('Comunicación e inicio de las 48 horas','Cartitas: '+money(r.subtotal)+' · Envío: '+money(shipping)+' · Total final: '+money(total)+'. Confirmá solamente después de comunicar este importe y las instrucciones al comprador. Esta acción no envía mensajes.',[{name:'comunicado',type:'checkbox',label:'Comuniqué al comprador el importe final y las instrucciones de pago.'}]);
+ if(!result)return;
+ await gestion.iniciarPlazoPago(r.id,{costoEnvio:shipping,comunicado:result.has('comunicado')});
+ await loadPanel();feedback('Importe comunicado registrado. Comenzó el plazo de 48 horas.');
 }
 async function confirmPayment(r){
  const fields=[];
  if(!Number.isSafeInteger(r.subtotal))fields.push({name:'subtotalLegacy',label:'Importe de cartitas · ARS (registro anterior sin importe)'});
- if(r.cliente?.entrega!=='local')fields.push({name:'costoEnvio',label:'Costo acordado de envío · ARS (0 si no corresponde)',value:r.costoEnvio??''});
+ if(r.versionFlujo!==2&&r.cliente?.entrega!=='local')fields.push({name:'costoEnvio',label:'Costo acordado de envío · ARS (0 si no corresponde)',value:r.costoEnvio??''});
  fields.push({name:'verificado',type:'checkbox',label:'Verifiqué el pago recibido de las cartitas y el envío acordado.'});
  const result=await dialog('Confirmar pedido 💌',(r.cliente?.nombre||r.referencia||'Reserva')+' · '+r.cantidad+' cartitas. '+(r.subtotal?money(r.subtotal)+' de cartitas. ':'')+'Esta acción registra tu verificación manual; no realiza ningún cobro.',fields);
  if(!result)return;
@@ -270,7 +285,7 @@ el('adminNewReservation').addEventListener('submit',event=>{
  perform(f.querySelector('button'),async()=>{
   if(!checkReservationPrice())return;
   const data=new FormData(f),id=selected;
-  const ok=await dialog('Crear reserva manual','La reserva ocupará '+data.get('cantidad')+' cupos durante 48 horas en la edición '+id+'. Para conservar datos de una solicitud, creala desde su tarjeta.');
+  const ok=await dialog('Crear reserva manual','La reserva ocupará '+data.get('cantidad')+' cupos, sin iniciar todavía las 48 horas en la edición '+id+'. Para conservar datos de una solicitud, creala desde su tarjeta.');
   if(!ok)return;
   await gestion.reservaManual(id,data.get('referencia'),data.get('cantidad'));f.reset();await loadPanel();tabs.show('reservationsSection');feedback('Reserva manual creada.');
  });

@@ -7,7 +7,7 @@ export function detectarEventos(collection,before,after){
  if(collection==='solicitudes')return !before&&after.estado==='NUEVA_CONSULTA'?['solicitud']:[];
  if(collection!=='reservas')return [];
  const events=[];
- if(!before&&after.estado==='PENDIENTE_PAGO')events.push('reserva');
+ if(after.estado==='PENDIENTE_PAGO'&&(!before||before.estado==='PENDIENTE_COTIZACION'))events.push('reserva');
  if(before&&before.estado!=='CONFIRMADA'&&after.estado==='CONFIRMADA')events.push('pago');
  if(before&&before.preparacion!=='DESPACHADA'&&after.preparacion==='DESPACHADA'&&after.estado==='CONFIRMADA')events.push('despacho');
  return events;

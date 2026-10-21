@@ -73,3 +73,11 @@ test('bloquea 999, faltantes de destinatario y despacho incompleto',async()=>{
  for(const [id,data] of [['test',{...fixture,edicionId:'999'}],['missing',{...fixture,email:null}]])await service.onDocumentWritten({collection:'solicitudes',id,before:null,after:{...data,estado:'NUEVA_CONSULTA'}});
  assert.equal(db.records.size,2);for(const row of db.records.values()){assert.equal(row.status,'BLOCKED');assert.equal(row.message,null);}
 });
+
+test('cotización no anuncia vencimiento ni instrucciones; evento al iniciar plazo',()=>{
+ const pending=prepararCorreo('reserva',{...fixture,estado:'PENDIENTE_COTIZACION',venceEn:null,pagosHabilitados:true,instruccionesPago:'ALIAS-NO-MOSTRAR'});
+ assert.match(pending.text,/Todavía no comenzó/);assert.doesNotMatch(pending.text,/vence el|ALIAS-NO-MOSTRAR/);
+ assert.deepEqual(detectarEventos('reservas',null,{estado:'PENDIENTE_COTIZACION'}),[]);
+ assert.deepEqual(detectarEventos('reservas',{estado:'PENDIENTE_COTIZACION'},{estado:'PENDIENTE_PAGO'}),['reserva']);
+ assert.deepEqual(detectarEventos('reservas',{estado:'PENDIENTE_PAGO'},{estado:'PENDIENTE_PAGO'}),[]);
+});

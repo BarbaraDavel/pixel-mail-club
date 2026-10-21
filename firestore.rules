@@ -6,7 +6,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function esAdmin() {
       return request.auth != null
-        && request.auth.uid == 'LSf6e03U0xfPDVG3Wmam9BXuAm13';
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.auth.uid in ['aDYubwS1BnXvMKKPbLiB0tLI5wz1', 'LSf6e03U0xfPDVG3Wmam9BXuAm13'];
     }
     function texto(value, max) {
       return value is string && value.size() <= max

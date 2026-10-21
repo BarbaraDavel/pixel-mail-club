@@ -1,0 +1,23 @@
+name: Validate Gmail backend (disabled)
+on:
+  push:
+    branches:
+      - feat/gmail-backend-disabled
+  pull_request:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backend dependencies
+        working-directory: functions
+        run: npm install --ignore-scripts
+      - name: Check backend syntax
+        run: node --check functions/index.js && node --check functions/templates.js && node --check functions/scripts/gmail-oauth-setup.mjs

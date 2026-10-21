@@ -152,14 +152,39 @@ async function cargarSolicitudes(){
   const snapshot=await getDocs(query(collection(db,'solicitudes'),...constraints));
   if(generation!==requestGeneration||auth.currentUser?.uid!==ADMIN_UID)return;
   for(const snap of snapshot.docs){
-   const r=snap.data(),tr=document.createElement('tr');
-   for(const value of [formatDate(r.creadaEn),r.edicionId,r.nombre,r.apodo||'—',r.email,r.telefono,String(r.cantidad),r.entrega,[r.direccion,r.localidad,r.provincia,r.codigoPostal].filter(Boolean).join(' · '),r.comunicaciones?'Sí':'No']){
-    const td=document.createElement('td');td.textContent=value??'—';tr.append(td);
-   }
-   const td=document.createElement('td'),select=document.createElement('select');
+   const r=snap.data(),card=document.createElement('article');
+   card.className='request-card';
+   const head=document.createElement('header');head.className='request-card-head';
+   const identity=document.createElement('div');
+   const name=document.createElement('h4');name.textContent=r.nombre||'Sin nombre';
+   const nickname=document.createElement('p');nickname.className='request-nickname';
+   nickname.textContent=r.apodo?'Le gusta que le digan '+r.apodo:'Sin apodo';
+   identity.append(name,nickname);
+   const received=document.createElement('p');received.className='request-received';
+   received.textContent='Recibida el '+formatDate(r.creadaEn);
+   head.append(identity,received);card.append(head);
+   const grid=document.createElement('div');grid.className='request-data-grid';
+   const group=(title,fields)=>{
+    const section=document.createElement('section'),heading=document.createElement('h5'),list=document.createElement('dl');
+    heading.textContent=title;
+    for(const [label,value] of fields){
+     const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');
+     dt.textContent=label;dd.textContent=value||'—';row.append(dt,dd);list.append(row);
+    }
+    section.append(heading,list);grid.append(section);
+   };
+   group('Contacto',[['Email',r.email],['WhatsApp',r.telefono]]);
+   const delivery={domicilio:'A domicilio',sucursal:'A sucursal',local:'Retiro a convenir en Posadas'};
+   group('Entrega',[['Modalidad',delivery[r.entrega]||r.entrega],...(r.entrega==='domicilio'?[['Dirección',r.direccion]]:[]),['Localidad',r.localidad],['Provincia',r.provincia],['Código postal',r.codigoPostal]]);
+   group('Su cartita',[['Edición',r.edicionId],['Cantidad',String(r.cantidad)+' cartita'+(r.cantidad===1?'':'s')],['Recibir novedades',r.comunicaciones?'Sí, aceptó recibir novedades':'No']]);
+   card.append(grid);
+   const footer=document.createElement('footer');footer.className='request-card-footer';
+   const note=document.createElement('p');note.textContent='Solicitud sin reserva de cupo ni pago.';
+   const label=document.createElement('label');label.textContent='Estado de la solicitud';
+   const select=document.createElement('select');
    select.setAttribute('aria-label','Estado de la solicitud de '+r.nombre);
-   for(const state of ['NUEVA_CONSULTA','CONTACTADA','ARCHIVADA']){
-    const option=document.createElement('option');option.value=state;option.textContent=state.replaceAll('_',' ');select.append(option);
+   for(const [state,text] of [['NUEVA_CONSULTA','Nueva consulta'],['CONTACTADA','Contactada'],['ARCHIVADA','Archivada']]){
+    const option=document.createElement('option');option.value=state;option.textContent=text;select.append(option);
    }
    select.value=r.estado;
    select.addEventListener('change',async()=>{
@@ -171,7 +196,7 @@ async function cargarSolicitudes(){
     }catch{select.value=previous;output.textContent='No se pudo actualizar el estado.';}
     finally{select.disabled=false;}
    });
-   td.append(select);tr.append(td);el('adminRequests').append(tr);
+   label.append(select);footer.append(note,label);card.append(footer);el('adminRequests').append(card);
   }
   requestCursor=snapshot.docs.at(-1)||requestCursor;
   more.hidden=snapshot.size<25;

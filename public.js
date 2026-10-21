@@ -16,19 +16,21 @@ function applyEdition(data){if(!data)return;setText('#editionTitle',data.nombre|
 const endpoint=(action)=>MAILCLUB_API_URL.replace(/\/$/,'')+'/'+action;
 function showPrice(){
  const qty=Number(form.elements.cantidad.value||0), valid=Number.isSafeInteger(qty)&&qty>=1&&qty<=20;
- $('#unitPrice').textContent=edition?money(edition.precio):'—';
- $('#totalPrice').textContent=edition&&valid?money(edition.precio*qty):'—';
+ const priceValid=Number.isSafeInteger(edition?.precio)&&edition.precio>0;
+ $('#unitPrice').textContent=priceValid?money(edition.precio):'Precio por definir';
+ $('#totalPrice').textContent=priceValid&&valid?money(edition.precio*qty):'A confirmar';
  const shipping=$('#shippingEstimate'), grand=$('#grandTotal');
  const local=form.elements.entrega.value==='local';
  if(shipping)shipping.textContent=local?'Sin costo':'A cotizar';
- if(grand)grand.textContent=edition&&valid&&local?money(edition.precio*qty):'A confirmar';
+ if(grand)grand.textContent=priceValid&&valid&&local?money(edition.precio*qty):'A confirmar';
  button.disabled=DEMO_MODE||!edition||!valid||!MAILCLUB_API_URL;
 }
 async function loadEdition(){
  if(DEMO_MODE){
   try{const r=await fetch('./edition-preview.json',{cache:'no-store'});if(r.ok)applyEdition(await r.json());}catch(e){console.warn('Vista previa sin archivo de edición:',e);}
   status.textContent='Vista previa: las reservas y los pagos todavía están deshabilitados.';
-  $('#editionPrice').textContent='La edición todavía no está abierta para reservas.';
+  $('#editionPrice').textContent='Precio final pendiente de publicación. Las reservas todavía no están habilitadas.';
+  showPrice();
   onAuthStateChanged(auth,async user=>{
     try{
       // Firestore solo permite leer borradores a la administradora.

@@ -1,6 +1,7 @@
 import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js';
 import {getAuth,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js';
 import {getFirestore,doc,getDoc,collection,getDocs,runTransaction,serverTimestamp,Timestamp,query,where,orderBy,limit,startAfter,updateDoc} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js';
+import {getFunctions,httpsCallable} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-functions.js';
 import {protegerApp} from './app-check.js';
 import {firebaseConfig} from './v12-firebase-config.js';
 import {calcularCupos} from './reservas-cupos.js';
@@ -8,7 +9,9 @@ import {crearGestion,esAdmin} from './admin-operations.js';
 import {initAdminTabs} from './admin-tabs.js';
 const app=getApps().length?getApp():initializeApp(firebaseConfig);
 protegerApp(app);
-const auth=getAuth(app),db=getFirestore(app);
+const auth=getAuth(app),db=getFirestore(app),functions=getFunctions(app,'southamerica-east1');
+const callMailClubEmail=httpsCallable(functions,'enviarCorreoMailClub');
+const EMAIL_ACTIONS_ENABLED=false;
 const gestion=crearGestion({db,doc,collection,runTransaction,serverTimestamp,Timestamp,currentUser:()=>auth.currentUser});
 const el=id=>document.getElementById(id);
 const tabs=initAdminTabs();
@@ -98,6 +101,17 @@ function appendClient(grid,c={}){
 function makeButton(label,handler,cls=''){
  const b=node('button',cls,label);b.type='button';b.addEventListener('click',()=>perform(b,handler));return b;
 }
+function emailAction(label,event,id){
+ const b=node('button','secondary',EMAIL_ACTIONS_ENABLED?label:label+' · pendiente de activar');b.type='button';b.disabled=!EMAIL_ACTIONS_ENABLED;
+ b.title=EMAIL_ACTIONS_ENABLED?'Enviar manualmente el correo seleccionado.':'El backend y las credenciales todavía no están configurados; no se enviará ningún correo.';
+ if(EMAIL_ACTIONS_ENABLED)b.addEventListener('click',()=>perform(b,async()=>{
+  const ok=await dialog('Enviar correo de Pixel Mail Club',label+'. Se enviará un único correo al destinatario guardado en el registro. Confirmá que revisaste los datos.',[{name:'confirmar',type:'checkbox',label:'Confirmo el envío manual de este correo.'}]);
+  if(!ok||!ok.has('confirmar'))return;
+  const result=await callMailClubEmail({evento:event,documentoId:id});
+  feedback(result.data?.duplicate?'Este correo ya figura como enviado.':result.data?.message||'Correo enviado.');
+ }));
+ return b;
+}
 async function perform(button,handler){
  if(actionBusy||!authorized())return;
  actionBusy=true;button.disabled=true;
@@ -168,6 +182,7 @@ function renderRequests(){
   const grid=node('div','request-data-grid');appendClient(grid,r);
   group(grid,'Su cartita',[['Edición',r.edicionId],['Cantidad',r.cantidad+' cartita'+(r.cantidad===1?'':'s')],['Recibir novedades',r.comunicaciones?'Sí':'No']]);card.append(grid);
   const footer=node('footer','request-card-footer'),actions=node('div','request-actions'),label=node('label','','Estado de la solicitud'),select=node('select');
+   if(r.estado!=='ARCHIVADA')actions.append(emailAction('Enviar solicitud recibida','solicitud',r.id));
   select.setAttribute('aria-label','Estado de la solicitud de '+r.nombre);
   for(const [value,title] of [['NUEVA_CONSULTA','Nueva consulta'],['CONTACTADA','Contactada'],['ARCHIVADA','Archivada']]){const o=node('option','',title);o.value=value;select.append(o);}
   select.value=r.estado;label.append(select);
@@ -232,7 +247,7 @@ function renderReservations(){
   }
   footer.append(info,actions);card.append(footer);
   if(unassigned){history.append(card);}
-  else if(confirmed){card.append(orderForm(r));orders.append(card);}
+  else if(confirmed){actions.append(emailAction('Avisar pago confirmado','pago',r.id));if(r.preparacion==='DESPACHADA')actions.append(emailAction('Avisar despacho','despacho',r.id));card.append(orderForm(r));orders.append(card);}
   else if(['PENDIENTE_PAGO','PENDIENTE_COTIZACION'].includes(r.estado))pending.append(card);
   else history.append(card);
  }

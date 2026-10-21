@@ -62,3 +62,23 @@ header{padding:0 8px 8px}.brand{gap:12px}.brand strong{font-size:32px;letter-spa
 #secureAccess #authMessage:empty{display:none;}
 
 .spam-trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+
+
+/* Movimiento decorativo del zorrito; no altera la imagen ni el formulario. */
+.hero-art-scene{position:relative;width:min(460px,100%);margin:10px auto 0}
+.hero-art-scene .hero-art{margin-top:0}
+.hero-sparkle{position:absolute;pointer-events:none;color:#b68d65;opacity:.65;font-family:Georgia,serif;line-height:1}
+.sparkle-one{left:14%;top:23%;font-size:24px}
+.sparkle-two{right:12%;top:42%;font-size:31px}
+.sparkle-three{right:24%;top:12%;font-size:17px}
+.hero-motion-toggle{display:block;width:auto;margin:5px auto 12px;padding:6px 12px;border:1px solid #c7a59b;border-radius:99px;background:transparent;color:#765652;font:inherit;font-size:11px;cursor:pointer}
+.hero-motion-toggle[hidden]{display:none}
+@keyframes pixel-fox-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes pixel-star-glow{0%,100%{opacity:.4;transform:scale(.94)}50%{opacity:.85;transform:scale(1.06)}}
+@media(prefers-reduced-motion:no-preference){
+ .hero-art-scene .hero-art{animation:pixel-fox-float 6s ease-in-out infinite}
+ .hero-sparkle{animation:pixel-star-glow 4.8s ease-in-out infinite}
+ .sparkle-two{animation-delay:-1.6s}
+ .sparkle-three{animation-delay:-3.2s}
+ .hero.motion-paused .hero-art,.hero.motion-paused .hero-sparkle{animation-play-state:paused}
+}

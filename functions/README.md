@@ -12,7 +12,7 @@ Este backend agrega una callable Function privada para enviar las cuatro plantil
 - Reserva: solo `PENDIENTE_COTIZACION` o `PENDIENTE_PAGO`.
 - Pago: solo reserva `CONFIRMADA` con `pagoVerificadoEn`.
 - Despacho: solo pedido confirmado con `preparacion: DESPACHADA`.
-- Registra intentos en `emailDispatches` y evita repetir eventos marcados como enviados. Las dos etapas de reserva tienen claves de idempotencia separadas.
+- Registra intentos en `emailDispatches` y reclama cada envío dentro de una transacción de Firestore para reducir duplicados por solicitudes concurrentes. Las dos etapas de reserva tienen claves de idempotencia separadas. Si el envío queda en `SENDING` tras un fallo, revisá manualmente Gmail y el registro antes de reintentar.
 - No se despliega automáticamente esta Function desde los workflows de Hosting.
 
 ## Configuración pendiente (no hacer todavía en producción)
@@ -31,4 +31,4 @@ Este backend agrega una callable Function privada para enviar las cuatro plantil
 
 ## Llamada
 
-La callable `enviarCorreoMailClub` espera `{ evento, documentoId }`, con evento `solicitud | reserva | pago | despacho`. No está conectada al panel todavía. No activar envíos reales hasta integrar y revisar el flujo administrativo.
+La callable `enviarCorreoMailClub` espera `{ evento, documentoId }`, con evento `solicitud | reserva | pago | despacho`. El panel muestra botones de envío manual desactivados por diseño (`EMAIL_ACTIONS_ENABLED=false`). No activar envíos reales hasta integrar y revisar el flujo administrativo.

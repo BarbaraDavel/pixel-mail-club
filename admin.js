@@ -19,7 +19,7 @@ const date=v=>{const ms=millis(v);return Number.isFinite(ms)?new Date(ms).toLoca
 const states={PENDIENTE_PAGO:'Pendiente de pago',CONFIRMADA:'Pedido confirmado',CANCELADA:'Cancelada',VENCIDA:'Vencida · cerrar para liberar cupos',PRUEBA:'Registro de prueba'};
 const preparation={PENDIENTE:'Por preparar',EN_PREPARACION:'En preparación',LISTA:'Lista para entregar',DESPACHADA:'Despachada',ENTREGADA:'Entregada'};
 const delivery={domicilio:'A domicilio',sucursal:'A sucursal',local:'Retiro a convenir en Posadas'};
-let editions=[],reservations=[],selected='001',loadedRequests=[],cursor=null,moreRequests=false;
+let editions=[],reservations=[],selected=new URLSearchParams(window.location.search).get('edicion')==='999'?'999':'001',loadedRequests=[],cursor=null,moreRequests=false;
 let generation=0,requestsLoading=false,panelLoading=false,editingVersion=null,newEdition=false,actionBusy=false,cancelDialog=null;
 const authorized=()=>auth.currentUser?.uid===ADMIN_UID;
 function feedback(text,error=false){
@@ -58,6 +58,7 @@ async function loadPanel(){
 function renderEdition(){
  const e=editions.find(e=>e.id===selected);
  el('adminEdition').textContent=e?e.nombre||'Edición '+e.id:'Creá tu primera edición';
+ el('adminPortalTest').hidden=selected!=='999'||e?.estado!=='borrador';
  el('adminReservationNotice').hidden=!e||Number.isSafeInteger(e.precio)&&e.precio>0;
  el('adminState').textContent=e?'Edición '+e.id+' · '+(e.estado||'Sin estado')+' · '+(e.precio>0?money(e.precio)+' por cartita':'Precio por definir'):'';
  try{

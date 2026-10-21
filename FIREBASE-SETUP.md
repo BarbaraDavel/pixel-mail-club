@@ -70,3 +70,20 @@ La página pública sigue recibiendo solicitudes para la edición 001. Crear otr
 `npm test` comprueba validación pública. `npm run test:rules` ejecuta pruebas de reglas y de las operaciones reales del admin en el emulador: conversión simultánea, últimos cupos, precio pendiente, borradores, conservación del contador y precio, confirmación manual, vencimiento/cancelación, historial, envío y acceso de otras identidades.
 
 Después del despliegue, revisar el índice, abrir admin.html con Ctrl+F5 y confirmar que siguen presentes las reservas anteriores. Probar el circuito de reserva/pedido únicamente cuando ya estén definidos los costos y quieras registrar una operación interna; las pruebas automatizadas nunca se ejecutan contra Firebase de producción.
+
+
+## Prueba completa del portal en la edición 999
+
+Publicar manualmente el archivo completo `firestore.rules` en Firebase Console → Firestore Database → Reglas → Publicar, después de revisar el cambio. Guardar o mergear el PR no publica reglas.
+
+La única ruta nueva de creación permite a la administradora enviar solicitudes para la edición 999, siempre que exista y siga en borrador. Exige su UID, un ID con prefijo `999_UID_`, el mismo esquema de campos y timestamp de servidor. Visitantes y otras cuentas no pueden enviar ni leer las solicitudes de prueba. El formulario público anónimo sigue limitado a 001 y conserva su ID único por UID. No se cambian permisos de reservas ni publicación de ediciones; no se habilitan pagos. App Check continúa aplicado en ambos formularios. No hace falta crear nuevos índices.
+
+1. Mergear y esperar que GitHub Pages termine de desplegar. Publicar las reglas anteriores.
+2. Mantener la sesión de administradora que usás en admin, en el mismo navegador/perfil.
+3. Seleccionar 999 · PRUEBA en admin → Solicitudes → Abrir formulario de prueba del portal. También se puede abrir `prueba.html` junto a `index.html`. La edición 999 debe permanecer como borrador, con precio de prueba mayor a cero y cupos disponibles.
+4. Completar el formulario con datos de prueba y enviar. No debe cambiar ningún cupo. El formulario comparte JS y validación con el público; en prueba escribe con la sesión administradora para no abrir el borrador a visitantes. Por lo tanto, esta prueba comprueba el recorrido de datos y administración; el acceso anónimo público 001 se verifica por separado con el formulario público.
+5. Volver al enlace del admin (selecciona 999), actualizar solicitudes y crear la reserva desde la tarjeta recibida. Comprobar nombre, apodo, email, teléfono, entrega, destino y cantidad; se ocupa un cupo por cartita una sola vez.
+6. Solo en estos registros de prueba, simular la verificación manual del pago con envío 0; comprobar el pedido confirmado y luego guardar preparación y seguimiento. No realizar transferencias ni pagos.
+7. La edición 001, sus solicitudes y reservas existentes deben conservar sus datos y cupos. Mantener 999 sin publicar. Los registros de prueba quedan identificados por su edición; no borrar reservas confirmadas para ajustar contadores.
+
+El ID se genera una vez al abrir la prueba y se conserva al reintentar, para evitar duplicados por errores de conexión. Recargar permite crear una prueba nueva. Si un envío parece haber fallado, actualizar primero Solicitudes de la edición 999 antes de recargar. La página de prueba oculta y vacía el formulario cuando se cierra la sesión; la protección efectiva está en las reglas.

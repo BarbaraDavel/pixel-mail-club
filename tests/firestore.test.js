@@ -55,3 +55,25 @@ test('mantiene privacidad de borradores y reservas y evita modificar cupos en lo
  if(snap.data().cuposReservados!==3)throw new Error('Se modificaron cupos');
  await assertSucceeds(updateDoc(doc(adb,'reservas','existente'),{estado:'CANCELADA'}));
 });
+
+
+test('prueba 999 solo administradora, con esquema completo y borrador privado',async()=>{
+ const db=env.authenticatedContext(admin).firestore();
+ const ref=doc(db,'solicitudes','999_'+admin+'_test-1');
+ const payload={...data(admin),edicionId:'999'};
+ await assertFails(setDoc(ref,payload)); // No existe la edición.
+ await setDoc(doc(db,'ediciones','999'),{estado:'borrador',cupos:2,cuposReservados:0});
+ await assertSucceeds(setDoc(ref,payload));
+ await assertFails(setDoc(ref,payload)); // No sobrescribe ni duplica al reintentar.
+ for(const client of [anon('a'),env.unauthenticatedContext().firestore(),env.authenticatedContext('otra',{firebase:{sign_in_provider:'password'}}).firestore()]){
+  await assertFails(setDoc(doc(client,'solicitudes','999_'+admin+'_test-2'),payload));
+  await assertFails(getDoc(doc(client,'solicitudes','999_'+admin+'_test-1')));
+  await assertFails(getDoc(doc(client,'ediciones','999')));
+ }
+ const next=doc(db,'solicitudes','999_'+admin+'_test-2');
+ for(const patch of [{uid:'otra'},{edicionId:'001'},{edicionId:'002'},{cantidad:0},{nombre:' '},{email:'mal'},{creadaEn:Timestamp.fromMillis(1)},{campoExtra:true}])await assertFails(setDoc(next,{...payload,...patch}));
+ await assertFails(setDoc(doc(db,'solicitudes','999_otro_test-2'),payload));
+ await updateDoc(doc(db,'ediciones','999'),{estado:'publicada'});
+ await assertFails(setDoc(next,payload));
+ await assertFails(setDoc(doc(db,'solicitudes','001_'+admin),data(admin)));
+});

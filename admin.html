@@ -47,12 +47,12 @@
     <button id="adminRequestsMore" type="button" hidden>Ver más solicitudes</button>
    </section>
    <section class="admin-card requests-section" id="reservationsSection" role="tabpanel" aria-labelledby="tabReservations" tabindex="0" hidden>
-    <div class="requests-heading"><div><h3 id="reservationsTitle">Reservas 🦊</h3><p class="admin-muted">Guardan cupos durante 48 horas. Confirmá solo después de revisar el pago recibido.</p></div></div>
+    <div class="requests-heading"><div><h3 id="reservationsTitle">Reservas 🦊</h3><p class="admin-muted">Guardan cupos mientras cotizás el envío. Las 48 horas empiezan cuando confirmás que comunicaste el importe final y las instrucciones de pago.</p></div></div>
     <details class="manual-reservation"><summary>Crear una reserva manual</summary>
      <form id="adminNewReservation" class="admin-form compact-form">
       <label>Referencia o nombre interno<input name="referencia" maxlength="80" required placeholder="Ej.: Pedido de María"></label>
       <label>Cantidad de cartitas<input name="cantidad" type="number" min="1" max="20" step="1" value="1" required></label>
-      <button type="submit">Crear reserva por 48 h</button>
+      <button type="submit">Reservar cupos · cotización pendiente</button>
       <p id="adminCreateStatus" class="admin-muted" role="status">Para las solicitudes recibidas, usá Crear reserva en su tarjeta: así conservás los datos de contacto.</p>
      </form>
     </details>

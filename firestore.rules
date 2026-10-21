@@ -28,7 +28,9 @@ service cloud.firestore {
         && (
           (request.auth.token.firebase.sign_in_provider == 'anonymous'
             && solicitudId == '001_' + request.auth.uid
-            && request.resource.data.edicionId == '001')
+            && request.resource.data.edicionId == '001'
+            && get(/databases/$(database)/documents/ediciones/001).data.estado == 'publicada'
+            && get(/databases/$(database)/documents/ediciones/001).data.inscripcionesAbiertas == true)
           || (esAdmin()
             && solicitudId.matches('999_' + request.auth.uid + '_[a-zA-Z0-9-]+')
             && request.resource.data.edicionId == '999'
@@ -83,6 +85,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Registro privado: solo el futuro backend con IAM puede escribir.
+    match /emailOutbox/{emailId} {
+      allow read: if esAdmin();
+      allow write: if false;
+    }
     match /{document=**} {
       allow read, write: if false;
     }

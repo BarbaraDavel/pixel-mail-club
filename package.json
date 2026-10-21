@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/validation.test.js tests/admin-access.test.js",
+    "test": "node --test tests/validation.test.js tests/admin-access.test.js tests/emails.test.js tests/cleanup-001.test.js tests/reservas-cupos.test.js",
     "test:rules": "firebase emulators:exec --project demo-pixel-mail-club --only firestore \"node --test --test-concurrency=1 tests/firestore.test.js tests/admin-operations.test.js\""
   },
   "devDependencies": {

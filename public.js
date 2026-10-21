@@ -41,7 +41,7 @@ function showPrice(){
  const local=form.elements.entrega.value==='local';
  if(shipping)shipping.textContent=local?'Sin costo':'A cotizar';
  if(grand)grand.textContent=priceValid&&valid&&local?money(edition.precio*qty):'A confirmar';
- button.disabled=!valid||sending||submitted||(adminTest?!testAllowed():edition?.estado!=='publicada');
+ button.disabled=!valid||sending||submitted||(adminTest?!testAllowed():(edition?.estado!=='publicada'||edition?.inscripcionesAbiertas!==true));
  button.textContent=submitted?'Solicitud recibida 💌':sending?'Enviando…':'Enviar solicitud privada 💌';
 }
 async function loadTestEdition(){
@@ -76,7 +76,7 @@ async function loadEdition(){
  button.disabled=true;
  try{
   const snapshot=await getDoc(doc(firestore,'ediciones','001'));
-  if(!snapshot.exists()||snapshot.data().estado!=='publicada'){
+  if(!snapshot.exists()||(snapshot.data().estado!=='publicada'||snapshot.data().inscripcionesAbiertas!==true)){
    edition=null;
    summary.textContent='Las inscripciones todavía no están abiertas.';
    price.textContent='Próximamente anunciaremos la próxima edición.';
@@ -110,7 +110,7 @@ form.addEventListener('submit',async event=>{
  event.preventDefault();
  if(sending||submitted)return;
  if(adminTest&&!testAllowed())return;
- if(!adminTest&&edition?.estado!=='publicada'){status.textContent='Las inscripciones no están abiertas.';return;}
+ if(!adminTest&&(edition?.estado!=='publicada'||edition?.inscripcionesAbiertas!==true)){status.textContent='Las inscripciones no están abiertas.';return;}
  if(!form.reportValidity())return;
  const fd=new FormData(form);
  if(fd.get('website')||Date.now()-openedAt<3000){status.textContent='Esperá unos segundos y revisá tus datos antes de enviar.';return;}

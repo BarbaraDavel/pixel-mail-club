@@ -7,7 +7,7 @@ const admin='LSf6e03U0xfPDVG3Wmam9BXuAm13';
 const anon=uid=>env.authenticatedContext(uid,{firebase:{sign_in_provider:'anonymous'}}).firestore();
 const data=uid=>({uid,edicionId:'001',nombre:'Ana Pérez',apodo:'Ana',email:'ana@example.com',telefono:'+54 376 1234567',cantidad:1,localidad:'Posadas',provincia:'Misiones',codigoPostal:'3300',direccion:'Calle 123',entrega:'domicilio',comunicaciones:false,estado:'NUEVA_CONSULTA',creadaEn:serverTimestamp()});
 before(async()=>{env=await initializeTestEnvironment({projectId:'demo-pixel-mail-club',firestore:{rules:await readFile(new URL('../firestore.rules',import.meta.url),'utf8')}});});
-beforeEach(async()=>{await env.clearFirestore();});
+beforeEach(async()=>{await env.clearFirestore();await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'ediciones','001'),{estado:'publicada',inscripcionesAbiertas:true}));});
 after(async()=>{await env?.cleanup();});
 test('anónimo crea una sola solicitud sin lectura ni edición propia',async()=>{
  const db=anon('a'),ref=doc(db,'solicitudes','001_a');
@@ -49,7 +49,7 @@ test('mantiene privacidad de borradores y reservas y evita modificar cupos en lo
  await assertFails(getDoc(doc(db,'reservas','existente')));
  const batch=writeBatch(db);batch.set(doc(db,'solicitudes','001_a'),data('a'));batch.update(doc(db,'ediciones','001'),{cuposReservados:4});
  await assertFails(batch.commit());
- await assertSucceeds(setDoc(doc(db,'solicitudes','001_a'),data('a')));
+ await assertFails(setDoc(doc(db,'solicitudes','001_a'),data('a')));
  const adb=env.authenticatedContext(admin,{firebase:{sign_in_provider:'password'}}).firestore();
  const snap=await assertSucceeds(getDoc(doc(adb,'ediciones','001')));
  if(snap.data().cuposReservados!==3)throw new Error('Se modificaron cupos');
@@ -97,3 +97,30 @@ for(const uid of ['aDYubwS1BnXvMKKPbLiB0tLI5wz1','LSf6e03U0xfPDVG3Wmam9BXuAm13']
   await assertFails(setDoc(doc(anonymous,'reservas','intrusa'),{estado:'CONFIRMADA'}));
  });
 }
+
+test('001 cerrada por borrador, flag falso o ausente; apertura explícita y publicada',async()=>{
+ const adminDb=env.authenticatedContext(admin,{firebase:{sign_in_provider:'password'}}).firestore();
+ const edition=doc(adminDb,'ediciones','001');
+ for(const config of [{estado:'borrador',inscripcionesAbiertas:true},{estado:'borrador',inscripcionesAbiertas:false},{estado:'publicada',inscripcionesAbiertas:false},{estado:'publicada'},{estado:'publicada',inscripcionesAbiertas:'true'}]){
+  await setDoc(edition,config);
+  await assertFails(setDoc(doc(anon('closed'),'solicitudes','001_closed'),data('closed')));
+ }
+ await deleteDoc(edition);
+ await assertFails(setDoc(doc(anon('closed'),'solicitudes','001_closed'),data('closed')));
+ await setDoc(edition,{estado:'publicada',inscripcionesAbiertas:true});
+ await assertSucceeds(setDoc(doc(anon('open'),'solicitudes','001_open'),data('open')));
+});
+test('clientes no pueden crear ni modificar outbox; administradoras solo leen',async()=>{
+ const adb=env.authenticatedContext(admin,{firebase:{sign_in_provider:'password'}}).firestore();
+ for(const db of [anon('a'),env.unauthenticatedContext().firestore(),env.authenticatedContext('otra').firestore(),adb])await assertFails(setDoc(doc(db,'emailOutbox','fake'),{status:'SENT'}));
+ await assertFails(getDocs(collection(anon('a'),'emailOutbox')));
+ await assertSucceeds(getDocs(collection(adb,'emailOutbox')));
+});
+
+test('solo administración inicia el plazo o cancela reservas en cotización',async()=>{
+ await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'reservas','cotizacion'),{edicionId:'001',estado:'PENDIENTE_COTIZACION',cantidad:1,venceEn:null}));
+ for(const db of [anon('a'),env.unauthenticatedContext().firestore(),env.authenticatedContext('otra').firestore()]){
+  await assertFails(updateDoc(doc(db,'reservas','cotizacion'),{estado:'PENDIENTE_PAGO',costoEnvio:0,venceEn:Timestamp.fromMillis(Date.now()+48*3600000)}));
+  await assertFails(updateDoc(doc(db,'reservas','cotizacion'),{estado:'CANCELADA'}));
+ }
+});

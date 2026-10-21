@@ -79,7 +79,7 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
     tx.update(editionRef,{cuposReservados:used+qty});
     tx.set(ref,{solicitudId,edicionId:r.edicionId,edicionNombre:e.nombre||r.edicionId,
      referencia:r.nombre||'Solicitud',cliente,cantidad:qty,...amount,costoEnvio:r.entrega==='local'?0:null,
-     estado:'PENDIENTE_PAGO',origen:'SOLICITUD',creadaEn:serverTimestamp(),venceEn:Timestamp.fromMillis(now()+48*60*60*1000)});
+     estado:'PENDIENTE_COTIZACION',versionFlujo:2,origen:'SOLICITUD',creadaEn:serverTimestamp(),venceEn:null});
    });
    return reservationId;
   },
@@ -92,9 +92,24 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
     const e=snap.data(),used=capacity(e,qty),amount=prices(e,qty);
     tx.update(editionRef,{cuposReservados:used+qty});
     tx.set(ref,{edicionId,edicionNombre:e.nombre||edicionId,referencia:name,cantidad:qty,...amount,costoEnvio:null,
-     estado:'PENDIENTE_PAGO',origen:'ADMIN',creadaEn:serverTimestamp(),venceEn:Timestamp.fromMillis(now()+48*60*60*1000)});
+     estado:'PENDIENTE_COTIZACION',versionFlujo:2,origen:'ADMIN',creadaEn:serverTimestamp(),venceEn:null});
    });
    return ref.id;
+  },
+  async iniciarPlazoPago(id,{costoEnvio,comunicado=false}={}){
+   admin();if(comunicado!==true)fail('Confirmá que comunicaste el importe final y las instrucciones de pago al comprador.');
+   const ref=doc(db,'reservas',id);
+   await runTransaction(db,async tx=>{
+    admin();const snap=await tx.get(ref);if(!snap.exists())fail('La reserva no existe.');
+    const r=snap.data();
+    if(r.estado!=='PENDIENTE_COTIZACION')fail('La reserva ya cambió de estado. No se reinició el plazo.');
+    const subtotal=integer(r.subtotal,1,2000000000,'el importe de las cartitas');
+    const shipping=r.cliente?.entrega==='local'?0:integer(costoEnvio,0,100000000,'el costo de envío');
+    const start=now();
+    tx.update(ref,{estado:'PENDIENTE_PAGO',versionFlujo:2,costoEnvio:shipping,total:subtotal+shipping,
+     pagoIniciadoEn:Timestamp.fromMillis(start),venceEn:Timestamp.fromMillis(start+48*3600000),
+     importeComunicadoEn:serverTimestamp(),comunicadoPor:currentUser().uid,actualizadaEn:serverTimestamp()});
+   });
   },
   async cambiarReserva(id,next,{verificado=false,costoEnvio,subtotalLegacy}={}){
    admin();if(!['CONFIRMADA','CANCELADA'].includes(next))fail('Acción inválida.');
@@ -102,7 +117,7 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
    await runTransaction(db,async tx=>{
     admin();const snap=await tx.get(ref);if(!snap.exists())fail('La reserva no existe.');
     const r=snap.data();
-    if(r.estado!=='PENDIENTE_PAGO')fail('La reserva ya cambió de estado. Recargá el panel.');
+    if(!['PENDIENTE_PAGO','PENDIENTE_COTIZACION'].includes(r.estado))fail('La reserva ya cambió de estado. Recargá el panel.');
     const editionRef=doc(db,'ediciones',r.edicionId),eSnap=await tx.get(editionRef);
     if(!eSnap.exists())fail('La edición no existe.');
     const qty=integer(r.cantidad,1,20,'la cantidad'),used=capacity(eSnap.data(),0);
@@ -110,11 +125,12 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
     const patch={estado:next,actualizadaEn:serverTimestamp()};
     if(next==='CANCELADA')tx.update(editionRef,{cuposReservados:used-qty});
     else{
+     if(r.estado!=='PENDIENTE_PAGO'||(r.versionFlujo===2&&(!r.pagoIniciadoEn||!r.importeComunicadoEn)))fail('Primero comunicá el importe final e iniciá el plazo de pago.');
      if(!verificado)fail('Confirmá que verificaste el pago recibido.');
      const expiry=r.venceEn?.toMillis?.()??Date.parse(r.venceEn);
      if(!Number.isFinite(expiry)||expiry<=now())fail('La reserva venció. Cerrala y revisá disponibilidad antes de tomar otro pedido.');
      const subtotal=integer(r.subtotal??subtotalLegacy,1,2000000000,'el importe de las cartitas');
-     const shipping=r.cliente?.entrega==='local'?0:integer(costoEnvio,0,100000000,'el costo de envío');
+     const shipping=r.cliente?.entrega==='local'?0:integer(r.versionFlujo===2?r.costoEnvio:(costoEnvio??r.costoEnvio),0,100000000,'el costo de envío');
      Object.assign(patch,{subtotal,costoEnvio:shipping,total:subtotal+shipping,pagoVerificadoEn:serverTimestamp(),preparacion:'PENDIENTE'});
     }
     tx.update(ref,patch);
@@ -124,6 +140,11 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
    admin();const state=raw.preparacion;
    if(!['PENDIENTE','EN_PREPARACION','LISTA','DESPACHADA','ENTREGADA'].includes(state))fail('Estado de preparación inválido.');
    const tracking=text(raw.seguimiento,100,'el seguimiento'),date=text(raw.fechaDespacho,10,'la fecha de despacho');
+   const correo=text(raw.correo,80,'la empresa de correo'),urlSeguimiento=text(raw.urlSeguimiento,1000,'el enlace de seguimiento');
+   if(urlSeguimiento){
+    let url;try{url=new URL(urlSeguimiento);}catch{fail('Enlace de seguimiento inválido.');}
+    if(url.protocol!=='https:'||url.username||url.password)fail('El enlace de seguimiento debe ser HTTPS y sin credenciales.');
+   }
    const parsed=new Date(date+'T12:00:00Z');
    if(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date))fail('Revisá la fecha de despacho.');
    if(date&&date>new Date(now()).toLocaleDateString('en-CA',{timeZone:'America/Argentina/Buenos_Aires'}))fail('La fecha de despacho no puede ser futura.');
@@ -131,8 +152,8 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
    await runTransaction(db,async tx=>{
     admin();const snap=await tx.get(ref);if(!snap.exists()||snap.data().estado!=='CONFIRMADA')fail('Solo se puede preparar un pedido confirmado.');
     const local=snap.data().cliente?.entrega==='local';
-    if(['DESPACHADA','ENTREGADA'].includes(state)&&!local&&(!tracking||!date))fail('Completá seguimiento y fecha de despacho para el envío.');
-    tx.update(ref,{preparacion:state,seguimiento:tracking,fechaDespacho:date,actualizadaEn:serverTimestamp()});
+    if(['DESPACHADA','ENTREGADA'].includes(state)&&!local&&(!tracking||!date||!correo))fail('Completá empresa de correo, seguimiento y fecha de despacho para el envío.');
+    tx.update(ref,{preparacion:state,seguimiento:tracking,fechaDespacho:date,correo,urlSeguimiento,actualizadaEn:serverTimestamp()});
    });
   }
  };

@@ -1,21 +1,32 @@
-// Preparación solamente: sin proveedor, triggers, credenciales ni envío.
+// Solo renderizado: no realiza I/O ni envíos.
 export const EMAILS_ENABLED=false;
-const required=(data,key)=>{
- const value=String(data[key]??'').trim();
- if(!value)throw Error('Falta '+key);
- return value;
-};
-export function prepararCorreo(evento,data){
- const nombre=required(data,'nombre'),edicion=required(data,'edicion');
- const greetings='Hola, '+nombre+' 💌\n\n';
- const endings='\n\nHecho con amor,\nPixel Mail Club 🦊';
- const templates={
-  solicitud:()=>({subject:'Recibimos tu solicitud 💌',text:'¡Gracias por querer ser parte de '+edicion+'! Recibimos tus datos y pronto nos comunicaremos con vos. Esta solicitud todavía no reserva cupos ni requiere un pago.'}),
-  reserva:()=>({subject:'Tus cartitas están reservadas 🦊',text:'Reservamos tus cartitas de '+edicion+'. El importe de las cartitas es '+required(data,'subtotal')+' ARS y el envío '+required(data,'envio')+'. Tu reserva vence el '+required(data,'vencimiento')+' (hora argentina). '+required(data,'instruccionesPago')}),
-  pago:()=>({subject:'¡Tu pago está confirmado! 💌',text:'Verificamos tu pago de '+required(data,'total')+' ARS para '+edicion+'. ¡Tu pedido está confirmado! Te avisaremos cuando despachemos tus cartitas.'}),
-  despacho:()=>({subject:'¡Tus cartitas ya están en camino! ✨',text:'Despachamos tu pedido de '+edicion+' el '+required(data,'fechaDespacho')+'.\nCorreo: '+required(data,'correo')+'\nNúmero de seguimiento: '+required(data,'seguimiento')})
- };
- if(!templates[evento])throw Error('Evento de correo desconocido');
- const message=templates[evento]();
- return {...message,text:greetings+message.text+endings};
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const need=(d,k)=>{if(!String(d[k]??'').trim())throw Error('Falta '+k);return String(d[k]);};
+const money=n=>Number.isSafeInteger(n)&&n>=0?new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n)+' ARS':'A confirmar';
+export function safeTrackingUrl(value){
+ try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:null;}catch{return null;}
+}
+function date(value,withTime=false){
+ const ms=value?.toMillis?.()??(typeof value==='number'?value:Date.parse(value));
+ if(!Number.isFinite(ms))throw Error('Fecha inválida');
+ return new Intl.DateTimeFormat('es-AR',{timeZone:'America/Argentina/Buenos_Aires',dateStyle:'long',...(withTime?{timeStyle:'medium',hourCycle:'h23'}:{})}).format(ms)+(withTime?' (hora argentina, UTC−3)':'');
+}
+function summary(d){
+ if(!Number.isSafeInteger(d.cantidad)||d.cantidad<1)throw Error('Cantidad inválida');
+ return [['Edición',need(d,'edicion')],['Cartitas',d.cantidad],['Precio por cartita',money(d.precioUnitario)],['Subtotal',money(d.subtotal)],['Envío (a cargo del comprador)',money(d.costoEnvio)],['Total',money(d.total)]];
+}
+export function prepararCorreo(evento,d){
+ const name=String(d.apodo||d.nombre||'').trim();if(!name)throw Error('Falta nombre');
+ let subject,paragraphs,rows=[];
+ switch(evento){
+  case 'solicitud':subject='¡Recibimos tu solicitud! 💌';paragraphs=['¡Qué alegría que quieras formar parte de nuestro pequeño mundo de cartitas!', 'Recibimos tu solicitud para la edición «'+need(d,'edicion')+'».', 'Prontito nos vamos a comunicar con vos para confirmar la disponibilidad, el precio final y los detalles del envío.', 'Por ahora no necesitás hacer ningún pago y tu cupito todavía no está reservado.', 'Mientras tanto, imaginá todas las cositas lindas que pueden llegar dentro de tu cartita. ✨'];break;
+  case 'reserva':if(d.estado==='PENDIENTE_COTIZACION'){subject='¡Guardamos tus cartitas! 💌';rows=summary(d);paragraphs=['Tu cupito para «'+need(d,'edicion')+'» está reservado mientras cotizamos el envío.', 'El envío está a cargo del comprador. Todavía no comenzó el plazo de pago: te comunicaremos el importe final y las instrucciones antes de iniciar las 48 horas.'];break;}subject='¡Tus cartitas están reservadas! 💌';rows=summary(d);paragraphs=['¡Qué alegría! Ya guardamos un lugarcito especial para vos en nuestro Mail Club.', 'Tu reserva para la edición «'+need(d,'edicion')+'» está confirmada.', 'El costo de envío está a cargo del comprador y se cotiza por separado según tu localidad y modalidad de entrega.', 'Ya te comunicamos el importe final y las instrucciones de pago. A partir de esa comunicación tenés 48 horas para pagar. Tu reserva vence el '+date(d.venceEn,true)+'.'];if(d.pagosHabilitados===true)paragraphs.push(need(d,'instruccionesPago'));else paragraphs.push('Los pagos todavía no están habilitados. Te avisaremos cómo continuar.');break;
+  case 'pago':subject='¡Tu pago está confirmado! 💌';if(!d.pagoVerificadoEn)throw Error('Falta verificación administrativa');rows=summary(d);paragraphs=['¡Qué alegría! Ya recibimos y confirmamos tu pago. Ahora sí, tu lugarcito en nuestro Mail Club está asegurado.', 'Tu cartita de la edición «'+need(d,'edicion')+'» está cada vez más cerca de llegar a tus manos.', 'Ahora empieza una de nuestras partes favoritas: preparar cada detalle con mucho amor, desde las ilustraciones hasta las pequeñas sorpresitas.', 'Cuando tu pedido esté listo y sea despachado, te enviaremos otro correo con los datos de seguimiento, si corresponde.', 'Gracias por confiar en este pequeño proyecto y por ser parte de algo tan especial. ✨'];break;
+  case 'despacho':{const retiro=/retiro|personal|posadas/i.test(String(d.correo||d.modalidadEntrega||''));subject=retiro?'¡Tu cartita está lista para retirar! 💌':'¡Tu cartita ya está en camino! 💌';rows=[['Destinatario',need(d,'nombre')],['Edición',need(d,'edicion')]];if(retiro){if(d.indicacionesRetiro)rows.push(['Indicaciones para retirar',String(d.indicacionesRetiro)]);paragraphs=['¡Tenemos una noticia preciosa para vos! Tu cartita está lista para retirar.', 'Coordinemos la entrega para que llegue a tus manos. ¡La preparamos con muchísimo amor!'];}else{rows.push(['Fecha de despacho',date(need(d,'fechaDespacho')+'T12:00:00-03:00')],['Correo',need(d,'correo')]);if(d.seguimiento)rows.push(['Seguimiento',String(d.seguimiento)]);paragraphs=['¡Tenemos una noticia preciosa para vos!', 'Tu cartita de la edición «'+need(d,'edicion')+'» ya salió de nuestro pequeño rincón creativo y comenzó su viaje hacia tus manos.', 'Preparamos cada detalle con muchísimo amor y esperamos que, cuando la abras, sientas toda la ilusión con la que fue creada.', 'Cuando finalmente llegue, nos encantaría saber qué te pareció.'];}break;}
+  default:throw Error('Evento desconocido');
+ }
+ const url=evento==='despacho'&&!/retiro|personal|posadas/i.test(String(d.correo||d.modalidadEntrega||''))?safeTrackingUrl(d.urlSeguimiento):null;
+ const text=['Hola, '+name+' 💌',...paragraphs,...rows.map(([k,v])=>k+': '+v),...(url?['Seguí tu envío: '+url]:[]),'Con mucho amor,','Pixel Mail Club 🦊'].join('\n\n');
+ const html=`<!doctype html><html lang="es-AR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title><style>@media(max-width:600px){.card{width:100%!important}.body{padding:24px 18px!important}}</style></head><body style="margin:0;background:#faf4ef;color:#51433d;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" class="card" width="560" cellspacing="0" cellpadding="0" style="width:100%;max-width:560px;background:#fffdf9;border:1px solid #edddd1;border-radius:20px"><tr><td align="center" style="padding:28px;background:#f3e5da;border-radius:20px 20px 0 0"><img src="https://pixel-mail-club.web.app/zorrito.png" width="82" height="82" alt="Zorrito de Pixel" style="display:block;border:0;object-fit:contain"><p style="margin:8px 0;font-size:24px;font-family:Georgia,serif">Pixel Mail Club</p><span style="font-size:13px">Cartitas que abrazan</span></td></tr><tr><td class="body" style="padding:32px"><h1 style="font-size:23px;font-family:Georgia,serif;color:#916750">${esc(subject)}</h1><p>Hola, ${esc(name)} 💌</p>${paragraphs.map(p=>'<p style="line-height:1.7">'+esc(p)+'</p>').join('')}${rows.length?'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f0e9;border-radius:12px">'+rows.map(([k,v])=>'<tr><td style="padding:10px;font-size:14px">'+esc(k)+'</td><td align="right" style="padding:10px;font-size:14px;word-break:break-word">'+esc(v)+'</td></tr>').join('')+'</table>':''}${url?'<p><a href="'+esc(url)+'" style="display:inline-block;background:#e9cdbb;color:#51433d;padding:14px 20px;border-radius:24px">Seguí tu envío</a></p>':''}<p style="line-height:1.7;margin-top:28px">Con mucho amor,<br><strong>Pixel Mail Club 🦊</strong></p></td></tr></table></td></tr></table></body></html>`;
+ return {subject,text,html};
 }

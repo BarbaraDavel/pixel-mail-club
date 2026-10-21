@@ -26,8 +26,9 @@
       ".firebase/**",
       "**/.*",
       "**/node_modules/**",
-      "scripts/**",
+      "server/**",
       "emails/**",
+      "scripts/**",
       "tests/**",
       "docs/**"
     ]

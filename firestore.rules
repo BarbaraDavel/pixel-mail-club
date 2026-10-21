@@ -1,5 +1,5 @@
-// Pixel Mail Club · Reglas base (borrador para despliegue posterior)
-// NO habilitar escrituras públicas hasta completar transacciones y pruebas.
+// Pixel Mail Club · Reglas completas para solicitudes privadas.
+// Publicar manualmente en Firebase; guardar en Git no despliega reglas.
 // Las reglas actuales de Firebase no se modifican al guardar este archivo.
 rules_version = '2';
 service cloud.firestore {
@@ -7,6 +7,10 @@ service cloud.firestore {
     function esAdmin() {
       return request.auth != null
         && request.auth.uid == 'LSf6e03U0xfPDVG3Wmam9BXuAm13';
+    }
+    function texto(value, max) {
+      return value is string && value.size() <= max
+        && value.matches('[^\\x00-\\x1F\\x7F]*');
     }
     match /ediciones/{edicionId} {
       allow get, list: if esAdmin() || resource.data.estado == 'publicada';
@@ -17,6 +21,61 @@ service cloud.firestore {
       // concurrentes, cupos, vencimiento y privacidad de compradores.
       allow read, write: if esAdmin();
     }
+    match /solicitudes/{solicitudId} {
+      allow get, list: if esAdmin();
+      allow create: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'anonymous'
+        && solicitudId == '001_' + request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid','edicionId','nombre','apodo','email','telefono',
+          'cantidad','localidad','provincia','codigoPostal','direccion',
+          'entrega','comunicaciones','estado','creadaEn'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid','edicionId','nombre','apodo','email','telefono',
+          'cantidad','localidad','provincia','codigoPostal','direccion',
+          'entrega','comunicaciones','estado','creadaEn'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.edicionId == '001'
+        && request.resource.data.estado == 'NUEVA_CONSULTA'
+        && request.resource.data.creadaEn == request.time
+        && texto(request.resource.data.nombre, 100)
+        && request.resource.data.nombre.matches('.*[^ ].*')
+        && request.resource.data.nombre.size() <= 100
+        && texto(request.resource.data.apodo, 60)
+        && request.resource.data.apodo.size() <= 60
+        && texto(request.resource.data.email, 254)
+        && request.resource.data.email.matches('[^ @]+@[^ @]+[.][^ @]+')
+        && request.resource.data.email.size() <= 254
+        && texto(request.resource.data.telefono, 25)
+        && request.resource.data.telefono.matches('[+0-9() .-]{6,25}')
+        && request.resource.data.telefono.size() <= 25
+        && request.resource.data.cantidad is int
+        && request.resource.data.cantidad >= 1
+        && request.resource.data.cantidad <= 20
+        && texto(request.resource.data.localidad, 80)
+        && request.resource.data.localidad.matches('.*[^ ].*')
+        && request.resource.data.localidad.size() <= 80
+        && texto(request.resource.data.provincia, 80)
+        && request.resource.data.provincia.matches('.*[^ ].*')
+        && request.resource.data.provincia.size() <= 80
+        && texto(request.resource.data.codigoPostal, 12)
+        && request.resource.data.codigoPostal.matches('[A-Za-z0-9 -]{3,12}')
+        && request.resource.data.codigoPostal.size() <= 12
+        && texto(request.resource.data.direccion, 200)
+        && request.resource.data.direccion.size() <= 200
+        && request.resource.data.entrega in ['domicilio','sucursal','local']
+        && (request.resource.data.entrega != 'domicilio' || request.resource.data.direccion.matches('.*[^ ].*'))
+        && request.resource.data.comunicaciones is bool;
+      // Moderar nunca convierte la solicitud en reserva ni toca cupos.
+      allow update: if esAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado','actualizadaEn'])
+        && request.resource.data.estado in ['NUEVA_CONSULTA','CONTACTADA','ARCHIVADA']
+        && request.resource.data.actualizadaEn == request.time;
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

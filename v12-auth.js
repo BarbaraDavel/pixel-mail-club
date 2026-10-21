@@ -1,8 +1,10 @@
 import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js';
 import {getAuth,sendSignInLinkToEmail,isSignInWithEmailLink,signInWithEmailLink,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js';
+import {protegerApp} from './app-check.js';
 import {firebaseConfig} from './v12-firebase-config.js';
 
 const app=getApps().length?getApp():initializeApp(firebaseConfig);
+protegerApp(app);
 const auth=getAuth(app);
 // Solicitar los mensajes de Firebase Authentication en español.
 auth.languageCode='es';

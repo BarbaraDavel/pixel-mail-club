@@ -60,3 +60,5 @@ header{padding:0 8px 8px}.brand{gap:12px}.brand strong{font-size:32px;letter-spa
 #secureAccess .club-welcome .club-welcome-email{font-size:12px;overflow-wrap:anywhere;color:#9a7775;}
 #secureAccess #signOutClub{display:inline-block;width:auto;max-width:100%;padding:9px 22px;margin:9px auto 0;background:transparent;color:#8b6665;border:1px solid #cfaeaa;border-radius:12px;font-size:13px;}
 #secureAccess #authMessage:empty{display:none;}
+
+.spam-trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}

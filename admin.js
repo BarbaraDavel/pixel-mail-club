@@ -1,16 +1,20 @@
 import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js';
 import {getAuth,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js';
-import {getFirestore,doc,getDoc,collection,getDocs,runTransaction,serverTimestamp,Timestamp} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js';
+import {getFirestore,doc,getDoc,collection,getDocs,runTransaction,serverTimestamp,Timestamp,query,orderBy,limit,startAfter,updateDoc} from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js';
+import {protegerApp} from './app-check.js';
 import {firebaseConfig} from './v12-firebase-config.js';
 import {calcularCupos} from './reservas-cupos.js';
 const ADMIN_UID='LSf6e03U0xfPDVG3Wmam9BXuAm13';
 const app=getApps().length?getApp():initializeApp(firebaseConfig);
+protegerApp(app);
 const auth=getAuth(app),db=getFirestore(app);
 const el=id=>document.getElementById(id);
 const status=el('adminStatus');
 const formatDate=v=>{const d=typeof v?.toDate==='function'?v.toDate():new Date(v);return Number.isFinite(d.getTime())?d.toLocaleString('es-AR'):'—';};
 async function cargarPanel(user){
   el('adminContent').hidden=true;
+  el('adminReservations').replaceChildren();
+  resetSolicitudes();
   if(!user){status.textContent='Iniciá sesión desde la página principal y volvé acá.';return;}
   if(user.uid!==ADMIN_UID){status.textContent='Esta cuenta no tiene acceso de administración.';return;}
   status.textContent='Cargando datos…';
@@ -18,6 +22,7 @@ async function cargarPanel(user){
     const [editionSnap,reservationsSnap]=await Promise.all([
       getDoc(doc(db,'ediciones','001')),getDocs(collection(db,'reservas'))
     ]);
+    if(auth.currentUser?.uid!==ADMIN_UID)return;
     if(!editionSnap.exists())throw new Error('No existe la edición 001.');
     const edition={id:editionSnap.id,...editionSnap.data()};
     const reservas=reservationsSnap.docs.map(d=>({id:d.id,...d.data()}));
@@ -48,7 +53,9 @@ async function cargarPanel(user){
     status.textContent='Datos cargados · administración';
     if(result.ocupados!==contador){status.textContent='Atención: el contador reservado ('+contador+') difiere del cálculo por vencimientos ('+result.ocupados+'). Los cupos no se liberan hasta cerrar las reservas.';}
     if(result.excedido){status.textContent='Atención: hay más sobres ocupados que cupos totales.';status.className='admin-error';}
+    if(auth.currentUser?.uid!==ADMIN_UID)return;
     el('adminContent').hidden=false;
+    await cargarSolicitudes();
   }catch(error){status.textContent='No se pudieron leer los datos: '+(error.code||error.message)+'. Verificá los permisos de Firestore.';status.className='admin-error';}
 }
 onAuthStateChanged(auth,cargarPanel);
@@ -126,3 +133,51 @@ reservationForm.addEventListener('submit',async event=>{
     console.error('Error al crear reserva:',error);
   }finally{button.disabled=false;}
 });
+
+let requestCursor=null,requestLoading=false,requestGeneration=0;
+function resetSolicitudes(){
+ requestGeneration++;requestCursor=null;
+ el('adminRequests').replaceChildren();
+ el('adminRequestsMore').hidden=true;
+ el('adminRequestsStatus').textContent='';
+}
+async function cargarSolicitudes(){
+ if(auth.currentUser?.uid!==ADMIN_UID||requestLoading)return;
+ requestLoading=true;
+ const generation=requestGeneration,more=el('adminRequestsMore'),output=el('adminRequestsStatus');
+ more.disabled=true;output.textContent='Cargando solicitudes…';
+ try{
+  const constraints=[orderBy('creadaEn','desc'),limit(25)];
+  if(requestCursor)constraints.push(startAfter(requestCursor));
+  const snapshot=await getDocs(query(collection(db,'solicitudes'),...constraints));
+  if(generation!==requestGeneration||auth.currentUser?.uid!==ADMIN_UID)return;
+  for(const snap of snapshot.docs){
+   const r=snap.data(),tr=document.createElement('tr');
+   for(const value of [formatDate(r.creadaEn),r.edicionId,r.nombre,r.apodo||'—',r.email,r.telefono,String(r.cantidad),r.entrega,[r.direccion,r.localidad,r.provincia,r.codigoPostal].filter(Boolean).join(' · '),r.comunicaciones?'Sí':'No']){
+    const td=document.createElement('td');td.textContent=value??'—';tr.append(td);
+   }
+   const td=document.createElement('td'),select=document.createElement('select');
+   select.setAttribute('aria-label','Estado de la solicitud de '+r.nombre);
+   for(const state of ['NUEVA_CONSULTA','CONTACTADA','ARCHIVADA']){
+    const option=document.createElement('option');option.value=state;option.textContent=state.replaceAll('_',' ');select.append(option);
+   }
+   select.value=r.estado;
+   select.addEventListener('change',async()=>{
+    const previous=r.estado;select.disabled=true;
+    try{
+     if(auth.currentUser?.uid!==ADMIN_UID)throw new Error('Acceso denegado');
+     await updateDoc(doc(db,'solicitudes',snap.id),{estado:select.value,actualizadaEn:serverTimestamp()});
+     r.estado=select.value;output.textContent='Estado actualizado. No se modificaron reservas ni cupos.';
+    }catch{select.value=previous;output.textContent='No se pudo actualizar el estado.';}
+    finally{select.disabled=false;}
+   });
+   td.append(select);tr.append(td);el('adminRequests').append(tr);
+  }
+  requestCursor=snapshot.docs.at(-1)||requestCursor;
+  more.hidden=snapshot.size<25;
+  output.textContent=el('adminRequests').children.length?'Solicitudes privadas recibidas.':'Todavía no hay solicitudes.';
+ }catch{if(generation===requestGeneration)output.textContent='No se pudieron cargar solicitudes. Revisá que estén publicadas las reglas nuevas de Firestore.';}
+ finally{requestLoading=false;more.disabled=false;}
+}
+el('adminRequestsMore').addEventListener('click',cargarSolicitudes);
+el('adminRequestsRefresh').addEventListener('click',()=>{if(requestLoading)return;resetSolicitudes();cargarSolicitudes();});

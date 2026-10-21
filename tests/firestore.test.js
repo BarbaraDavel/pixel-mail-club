@@ -32,7 +32,7 @@ test('valida campos en servidor, no solo en navegador',async()=>{
 });
 test('solo administradora lee y modera, sin alterar datos del solicitante',async()=>{
  await setDoc(doc(anon('a'),'solicitudes','001_a'),data('a'));
- const db=env.authenticatedContext(admin).firestore(),ref=doc(db,'solicitudes','001_a');
+ const db=env.authenticatedContext(admin,{firebase:{sign_in_provider:'password'}}).firestore(),ref=doc(db,'solicitudes','001_a');
  await assertSucceeds(getDocs(collection(db,'solicitudes')));
  await assertSucceeds(updateDoc(ref,{estado:'CONTACTADA',actualizadaEn:serverTimestamp()}));
  await assertFails(updateDoc(ref,{estado:'CONFIRMADA',actualizadaEn:serverTimestamp()}));
@@ -50,7 +50,7 @@ test('mantiene privacidad de borradores y reservas y evita modificar cupos en lo
  const batch=writeBatch(db);batch.set(doc(db,'solicitudes','001_a'),data('a'));batch.update(doc(db,'ediciones','001'),{cuposReservados:4});
  await assertFails(batch.commit());
  await assertSucceeds(setDoc(doc(db,'solicitudes','001_a'),data('a')));
- const adb=env.authenticatedContext(admin).firestore();
+ const adb=env.authenticatedContext(admin,{firebase:{sign_in_provider:'password'}}).firestore();
  const snap=await assertSucceeds(getDoc(doc(adb,'ediciones','001')));
  if(snap.data().cuposReservados!==3)throw new Error('Se modificaron cupos');
  await assertSucceeds(updateDoc(doc(adb,'reservas','existente'),{estado:'CANCELADA'}));
@@ -58,7 +58,7 @@ test('mantiene privacidad de borradores y reservas y evita modificar cupos en lo
 
 
 test('prueba 999 solo administradora, con esquema completo y borrador privado',async()=>{
- const db=env.authenticatedContext(admin).firestore();
+ const db=env.authenticatedContext(admin,{firebase:{sign_in_provider:'password'}}).firestore();
  const ref=doc(db,'solicitudes','999_'+admin+'_test-1');
  const payload={...data(admin),edicionId:'999'};
  await assertFails(setDoc(ref,payload)); // No existe la edición.
@@ -77,3 +77,23 @@ test('prueba 999 solo administradora, con esquema completo y borrador privado',a
  await assertFails(setDoc(next,payload));
  await assertFails(setDoc(doc(db,'solicitudes','001_'+admin),data(admin)));
 });
+
+
+for(const uid of ['aDYubwS1BnXvMKKPbLiB0tLI5wz1','LSf6e03U0xfPDVG3Wmam9BXuAm13']){
+ test('acceso y solicitud 999 propios para '+uid,async()=>{
+  const db=env.authenticatedContext(uid,{firebase:{sign_in_provider:'password'}}).firestore();
+  await assertSucceeds(setDoc(doc(db,'ediciones','999'),{estado:'borrador'}));
+  await assertSucceeds(getDocs(collection(db,'solicitudes')));
+  const payload={...data(uid),edicionId:'999'};
+  await assertSucceeds(setDoc(doc(db,'solicitudes','999_'+uid+'_unique-1'),payload));
+  await assertSucceeds(setDoc(doc(db,'solicitudes','999_'+uid+'_unique-2'),payload));
+  await assertFails(setDoc(doc(db,'solicitudes','999_otro_unique-3'),payload));
+  await assertFails(setDoc(doc(db,'solicitudes','999_'+uid+'_unique-3'),{...payload,uid:'otro'}));
+  const anonymous=anon(uid);
+  await assertFails(getDocs(collection(anonymous,'solicitudes')));
+  await assertFails(getDoc(doc(anonymous,'ediciones','999')));
+  await assertFails(setDoc(doc(anonymous,'solicitudes','999_'+uid+'_anonymous'),payload));
+  await assertFails(updateDoc(doc(anonymous,'ediciones','999'),{estado:'publicada'}));
+  await assertFails(setDoc(doc(anonymous,'reservas','intrusa'),{estado:'CONFIRMADA'}));
+ });
+}

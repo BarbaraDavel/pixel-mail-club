@@ -33,3 +33,40 @@ Las reglas conservan el UID administrador existente: `LSf6e03U0xfPDVG3Wmam9BXuAm
 Los tests de reglas usan el proyecto demo **demo-pixel-mail-club**, nunca producción, con el emulador de Firestore y Java 17 o superior compatible con Firebase CLI 14.22. Cubren privacidad, esquema, duplicados, UID ajeno, moderación y conservación de cupos/reservas. El emulador no comprueba Enforcement de App Check: esa comprobación debe hacerse después de configurarlo.
 
 No se despliegan reglas automáticamente y no se habilitan pagos desde este cambio.
+
+## Gestión privada de ediciones, reservas y pedidos
+
+El admin ahora organiza las consultas, reservas y pedidos por edición. Los pedidos confirmados son las mismas reservas con estado CONFIRMADA; no se copian a otra colección ni se vuelven a descontar cupos.
+
+### Un índice nuevo, sin cambios de reglas
+
+Las reglas de Firestore y App Check se conservan. **No es necesario volver a publicar reglas ni cambiar Enforcement.** Para filtrar solicitudes por edición y mostrar primero las más recientes, crear un índice compuesto:
+
+1. Firebase → Firestore Database → Índices → Compuesto → Crear índice.
+2. ID de colección: **solicitudes**. Alcance de consulta: **Colección**.
+3. Campo **edicionId**, orden **Ascendente**; campo **creadaEn**, orden **Descendente**.
+4. Guardar y esperar el estado **Habilitado / Enabled**. Luego recargar admin.html.
+
+El índice también se define en `firestore.indexes.json`. Si usás Firebase CLI, desde este repositorio: `npx firebase deploy --only firestore:indexes --project pixel-mail-club`. Este comando publica índices, no reglas ni hosting. No ejecutes un deploy general para este cambio.
+
+### Cómo usar el taller
+
+- Seleccioná la edición arriba para ver sus cupos, solicitudes, reservas y pedidos.
+- **Ediciones:** editá nombre, período, descripción, contenido (un elemento por renglón), precio entero ARS y cupos. Guardar mantiene el borrador. Podés crear ediciones nuevas con tres dígitos. No se pueden sobrescribir ediciones publicadas desde este editor.
+- **Precio 0:** significa pendiente de definir. Se puede guardar el borrador, pero crear una reserva requiere un precio mayor que cero. No se publica ningún precio en la página del cliente por guardar acá.
+- **Solicitudes:** Nueva consulta, Contactada y Archivada organizan el seguimiento. Cambiar esos estados no manda mensajes, no reserva y no cobra. Archivar tampoco cancela una reserva existente.
+- **Crear reserva · 48 h:** botón en una solicitud activa. Confirmá en el diálogo. La transacción guarda sus datos de contacto y entrega, cantidad, precio de ese momento y vínculo con la solicitud. Usa un ID estable: reintentos o dos pestañas no crean dos reservas para la misma solicitud.
+- **Una reserva por solicitud:** incluso cancelada conserva su vínculo e historial; no se recrea automáticamente. Si acordás una nueva reserva con esa persona, podés crearla manualmente y usar una referencia clara.
+- **Reservas manuales:** disponibles dentro del desplegable. Se conservan las reservas anteriores, incluso las de prueba o incompletas, en las secciones correspondientes; no se migran ni se borran datos existentes.
+- **Verificar pago y confirmar:** solo para reservas vigentes. Ingresá el costo de envío acordado (0 cuando corresponda) y marcá que verificaste el pago recibido. En reservas anteriores sin importe, cargá también el subtotal de cartitas. Esto registra una verificación manual y no realiza ningún cobro, no habilita checkout ni envía mensajes.
+- **Pedidos confirmados:** aparecen luego de confirmar el pago, con datos, importes, preparación y seguimiento. Estados: Por preparar, En preparación, Lista para entregar, Despachada y Entregada. Para envíos despachados o entregados se requieren número de seguimiento y fecha de despacho; el retiro local no requiere seguimiento.
+- **Cancelar / Cerrar vencida:** devuelve cupos una sola vez mediante transacción. Una reserva vencida no se puede confirmar. Los cupos no se liberan solos al cumplirse las 48 h.
+- **Modificar cupos o precio:** no permite bajar la capacidad por debajo de lo ocupado y no altera el precio guardado en reservas anteriores. Si otro editor guardó el borrador, se pide recargar antes de sobrescribirlo.
+
+La página pública sigue recibiendo solicitudes para la edición 001. Crear otro borrador no abre inscripciones ni cambia automáticamente el archivo de presentación público. Los pagos públicos y la publicación siguen pendientes de una decisión posterior.
+
+### Validación del circuito nuevo
+
+`npm test` comprueba validación pública. `npm run test:rules` ejecuta pruebas de reglas y de las operaciones reales del admin en el emulador: conversión simultánea, últimos cupos, precio pendiente, borradores, conservación del contador y precio, confirmación manual, vencimiento/cancelación, historial, envío y acceso de otras identidades.
+
+Después del despliegue, revisar el índice, abrir admin.html con Ctrl+F5 y confirmar que siguen presentes las reservas anteriores. Probar el circuito de reserva/pedido únicamente cuando ya estén definidos los costos y quieras registrar una operación interna; las pruebas automatizadas nunca se ejecutan contra Firebase de producción.

@@ -36,3 +36,75 @@
  .request-card-footer label{min-width:0;width:100%}
  .requests-heading button{width:100%}
 }
+
+/* El taller: misma identidad visual para reservas, pedidos y borradores. */
+.admin-wrap{margin:30px auto;padding:20px}
+.admin-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}
+.admin-card{background:#fffdfa;border:1px solid #eadbd4;border-radius:22px;padding:24px;margin:24px 0}
+.admin-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.admin-metrics>div{padding:18px;border-radius:16px;background:#f7eae3;color:#806862;font-size:13px}
+.admin-metrics strong{display:block;font-size:30px;color:#674c49;margin-top:6px}
+.admin-muted{color:#806862;font-size:14px;line-height:1.6}
+.admin-feedback{padding:16px;border-radius:14px;background:#edf5ed;color:#385c41}
+.admin-feedback[data-kind="error"]{background:#fff0f0;color:#a33842}
+.admin-error{color:#a33842}
+.admin-toolbar{display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.admin-toolbar label{flex:1;max-width:600px;min-width:0}
+.admin-toolbar button,.secondary{width:auto;background:#f3e9e4;color:#6e504d;border:1px solid #e3d2ca}
+.admin-toolbar button{margin-bottom:15px}
+.admin-nav{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 28px}
+.admin-nav a{padding:10px 14px;background:#f7eae3;border-radius:100px;text-decoration:none;color:#765652;font-size:13px}
+.admin-nav a:hover{background:#ecd7d0}
+.requests-section{scroll-margin-top:20px}
+.requests-section>.request-list{margin-top:22px}
+.request-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.request-actions button{width:auto;padding:11px 16px;font-size:14px}
+.request-actions a{color:#765652;font-size:14px}
+.state-badge{display:inline-block;border-radius:100px;padding:7px 12px;font-size:12px;font-weight:700;background:#f1e8e1;color:#765652;overflow-wrap:anywhere}
+.state-badge[data-state="PENDIENTE_PAGO"]{background:#fff0d6;color:#8b5c15}
+.state-badge[data-state="CONFIRMADA"]{background:#e7f1e8;color:#3b674b}
+.state-badge[data-state="VENCIDA"],.state-badge[data-state="CANCELADA"]{background:#fbe7e5;color:#934b47}
+.reservation-card .request-card-head{background:#f6ede3}
+.order-card .request-card-head{background:#eaf0e7}
+.record-reference{font-size:12px;color:#806862;overflow-wrap:anywhere;margin:8px 0 0}
+.manual-reservation{border:1px solid #eadbd4;border-radius:14px;padding:16px;margin:20px 0}
+.manual-reservation summary{cursor:pointer;font-weight:650;color:#765652;line-height:1.5}
+.manual-reservation>.request-list{margin-top:18px}
+.empty-list{margin:0;padding:24px;border:1px dashed #ddc5ba;border-radius:16px;background:#fffaf7;color:#806862;font-size:14px;line-height:1.6}
+.admin-form{margin-top:20px}
+.admin-form textarea{display:block;width:100%;box-sizing:border-box;padding:13px;border:1px solid #d8c5be;border-radius:10px;background:#fffcfa;color:#594641;font:inherit;margin-top:6px;resize:vertical}
+.admin-form input:disabled,.admin-form textarea:disabled{opacity:.7}
+.admin-form small{display:block;margin-top:7px;line-height:1.5;color:#806862;font-weight:400}
+.admin-form button{width:auto}
+.form-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.compact-form{display:grid;grid-template-columns:2fr 1fr;gap:0 20px}
+.compact-form button,.compact-form p{grid-column:1/-1}
+.order-form{padding:20px 24px;background:#faf7f2;border-top:1px solid #eadbd4}
+.order-form summary{cursor:pointer;font-size:14px;color:#765652;font-weight:650}
+.order-form form{margin-top:14px}
+.pixel-dialog{border:1px solid #ead6ce;border-radius:24px;background:#fffaf7;color:#674c49;max-width:min(510px,calc(100vw - 24px));width:100%;padding:26px;box-shadow:0 20px 80px #402c2c44;max-height:90vh;overflow-y:auto}
+.pixel-dialog::backdrop{background:#38272777}
+.pixel-dialog h2{margin-top:0}
+.pixel-dialog p{line-height:1.6;overflow-wrap:anywhere}
+.pixel-dialog .dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;flex-wrap:wrap}
+.pixel-dialog button{width:auto;padding:11px 16px}
+.dialog-check{display:flex;align-items:flex-start;gap:10px;line-height:1.6}
+.dialog-check input{flex-shrink:0;margin-top:4px}
+.dialog-total{background:#f7eae3;padding:14px;border-radius:12px;font-weight:650}
+[hidden]{display:none!important}
+@media(max-width:760px){
+ .admin-wrap{padding:10px;margin:15px auto}
+ .admin-card{padding:16px;margin:18px 0}
+ .requests-section{padding:12px}
+ .admin-metrics{gap:8px}
+ .admin-metrics>div{padding:12px;font-size:11px}
+ .admin-metrics strong{font-size:24px}
+ .admin-toolbar{display:block}
+ .admin-toolbar label{max-width:none}
+ .form-pair,.compact-form{grid-template-columns:minmax(0,1fr);gap:0}
+ .request-actions{width:100%}
+ .request-actions button{width:100%}
+ .admin-nav{gap:7px}
+ .admin-nav a{padding:9px 11px;font-size:12px}
+ .order-form{padding:18px 20px}
+}

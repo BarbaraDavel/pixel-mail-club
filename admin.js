@@ -56,7 +56,17 @@ onAuthStateChanged(auth,cargarPanel);
 async function cambiarEstado(reserva,nuevoEstado){
   if(auth.currentUser?.uid!==ADMIN_UID)return;
   const accion=nuevoEstado==='CONFIRMADA'?'confirmar el pago':'cancelar y liberar '+reserva.cantidad+' cupo(s)';
-  if(!confirm('¿Querés '+accion+' de esta reserva?'))return;
+  const ok=await new Promise(resolve=>{
+    const d=document.getElementById('adminDialog');
+    document.getElementById('adminDialogTitle').textContent=nuevoEstado==='CONFIRMADA'?'Confirmar pago 💌':'Cancelar reserva 🦊';
+    document.getElementById('adminDialogText').textContent='¿Querés '+accion+' de esta reserva?';
+    const yes=document.getElementById('adminDialogAccept'),no=document.getElementById('adminDialogBack');
+    yes.textContent=nuevoEstado==='CONFIRMADA'?'Confirmar pago':'Sí, cancelar';
+    const finish=value=>{yes.removeEventListener('click',accept);no.removeEventListener('click',reject);d.removeEventListener('cancel',reject);d.close();resolve(value);};
+    const accept=()=>finish(true),reject=e=>{if(e?.type==='cancel')e.preventDefault();finish(false);};
+    yes.addEventListener('click',accept);no.addEventListener('click',reject);d.addEventListener('cancel',reject);d.showModal();
+  });
+  if(!ok)return;
   status.textContent='Actualizando reserva…';
   try{
     await runTransaction(db,async tx=>{
@@ -73,7 +83,8 @@ async function cambiarEstado(reserva,nuevoEstado){
       tx.update(reservaRef,{estado:nuevoEstado,actualizadaEn:serverTimestamp()});
     });
     await cargarPanel(auth.currentUser);
-  }catch(error){status.textContent='No se pudo actualizar: '+(error.code||error.message);console.error(error);}
+    const message=document.getElementById('adminActionFeedback');message.hidden=false;message.dataset.kind='success';message.textContent=nuevoEstado==='CANCELADA'?'Reserva cancelada y cupos liberados.':'Pago confirmado correctamente.';message.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }catch(error){const message=document.getElementById('adminActionFeedback');message.hidden=false;message.dataset.kind='error';message.textContent='No se pudo actualizar: '+(error.code||error.message);message.scrollIntoView({block:'nearest',behavior:'smooth'});console.error(error);}
 }
 
 const reservationForm=el('adminNewReservation');

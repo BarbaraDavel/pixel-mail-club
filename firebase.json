@@ -30,7 +30,12 @@
       "emails/**",
       "scripts/**",
       "tests/**",
-      "docs/**"
+      "docs/**",
+      "functions/**"
     ]
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22"
   }
 }

@@ -96,7 +96,7 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
    });
    return ref.id;
   },
-  async iniciarPlazoPago(id,{costoEnvio,comunicado=false}={}){
+  async iniciarPlazoPago(id,{costoEnvio,comunicado=false,instruccionesPago}={}){
    admin();if(comunicado!==true)fail('Confirmá que comunicaste el importe final y las instrucciones de pago al comprador.');
    const ref=doc(db,'reservas',id);
    await runTransaction(db,async tx=>{
@@ -105,10 +105,11 @@ export function crearGestion({db,doc,collection,runTransaction,serverTimestamp,T
     if(r.estado!=='PENDIENTE_COTIZACION')fail('La reserva ya cambió de estado. No se reinició el plazo.');
     const subtotal=integer(r.subtotal,1,2000000000,'el importe de las cartitas');
     const shipping=r.cliente?.entrega==='local'?0:integer(costoEnvio,0,100000000,'el costo de envío');
+    const paymentInstructions=text(instruccionesPago,1200,'las instrucciones de pago',true);
     const start=now();
     tx.update(ref,{estado:'PENDIENTE_PAGO',versionFlujo:2,costoEnvio:shipping,total:subtotal+shipping,
      pagoIniciadoEn:Timestamp.fromMillis(start),venceEn:Timestamp.fromMillis(start+48*3600000),
-     importeComunicadoEn:serverTimestamp(),comunicadoPor:currentUser().uid,actualizadaEn:serverTimestamp()});
+     importeComunicadoEn:serverTimestamp(),comunicadoPor:currentUser().uid,pagosHabilitados:true,instruccionesPago:paymentInstructions,actualizadaEn:serverTimestamp()});
    });
   },
   async cambiarReserva(id,next,{verificado=false,costoEnvio,subtotalLegacy}={}){

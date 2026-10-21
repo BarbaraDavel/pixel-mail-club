@@ -70,18 +70,18 @@ test('confirmar pago requiere verificación, envío y vigencia; no vuelve a desc
  await assert.rejects(ops.cambiarReserva('solicitud_001_a','CONFIRMADA'),/iniciá/);
  await assert.rejects(ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:1500}),/comunicaste/);
  await assert.rejects(ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:'',comunicado:true}),/Completá/);
- await ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:1500,comunicado:true});
+ await ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:1500,comunicado:true,instruccionesPago:'Alias de prueba: pixel.test'});
  await assert.rejects(ops.cambiarReserva('solicitud_001_a','CONFIRMADA'),/verific/i);
- await assert.rejects(ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:1500,comunicado:true}),/ya cambió/);
+ await assert.rejects(ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:1500,comunicado:true,instruccionesPago:'Alias de prueba: pixel.test'}),/ya cambió/);
  await ops.cambiarReserva('solicitud_001_a','CONFIRMADA',{verificado:true,costoEnvio:1500});
  const r=await value('reservas','solicitud_001_a');
- assert.equal(r.estado,'CONFIRMADA');assert.equal(r.total,11500);assert.equal(r.preparacion,'PENDIENTE');
+ assert.equal(r.estado,'CONFIRMADA');assert.equal(r.total,11500);assert.equal(r.preparacion,'PENDIENTE');assert.equal(r.pagosHabilitados,true);assert.equal(r.instruccionesPago,'Alias de prueba: pixel.test');
  assert.equal((await value('ediciones','001')).cuposReservados,2);
  await assert.rejects(ops.cambiarReserva('solicitud_001_a','CONFIRMADA',{verificado:true,costoEnvio:1500}),/ya cambió/);
 });
 test('cerrar vencida libera una sola vez y no permite confirmar un pago tardío',async()=>{
  await ops.reservarSolicitud('001_a');
- await ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:0,comunicado:true});
+ await ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:0,comunicado:true,instruccionesPago:'Alias de prueba: pixel.test'});
  await updateDoc(doc(db,'reservas','solicitud_001_a'),{venceEn:Timestamp.fromMillis(clock-1)});
  await assert.rejects(ops.cambiarReserva('solicitud_001_a','CONFIRMADA',{verificado:true,costoEnvio:0}),/venció/);
  await ops.cambiarReserva('solicitud_001_a','CANCELADA');
@@ -90,7 +90,7 @@ test('cerrar vencida libera una sola vez y no permite confirmar un pago tardío'
  assert.equal((await value('solicitudes','001_a')).nombre,'Ana');
 });
 test('preparación y despacho privado con fecha y seguimiento',async()=>{
- await ops.reservarSolicitud('001_a');await ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:1000,comunicado:true});await ops.cambiarReserva('solicitud_001_a','CONFIRMADA',{verificado:true,costoEnvio:1000});
+ await ops.reservarSolicitud('001_a');await ops.iniciarPlazoPago('solicitud_001_a',{costoEnvio:1000,comunicado:true,instruccionesPago:'Alias de prueba: pixel.test'});await ops.cambiarReserva('solicitud_001_a','CONFIRMADA',{verificado:true,costoEnvio:1000});
  await assert.rejects(ops.actualizarPedido('solicitud_001_a',{preparacion:'DESPACHADA'}),/Completá/);
  await ops.actualizarPedido('solicitud_001_a',{preparacion:'DESPACHADA',seguimiento:'ABC123',fechaDespacho:'2026-10-21',correo:'Andreani'});
  const r=await value('reservas','solicitud_001_a');
@@ -124,7 +124,7 @@ test('formulario de prueba → solicitud privada → reserva → pedido conserva
  for(const key of ['nombre','apodo','email','telefono','entrega','direccion','localidad','provincia','codigoPostal'])assert.equal((await value('reservas',reservationId)).cliente[key],payload[key],key);
  assert.equal((await value('ediciones','999')).cuposReservados,1);
  await assert.rejects(ops.reservarSolicitud(id));
- await ops.iniciarPlazoPago(reservationId,{costoEnvio:0,comunicado:true});
+ await ops.iniciarPlazoPago(reservationId,{costoEnvio:0,comunicado:true,instruccionesPago:'Alias de prueba: pixel.test'});
  await ops.cambiarReserva(reservationId,'CONFIRMADA',{verificado:true,costoEnvio:0});
  await ops.actualizarPedido(reservationId,{preparacion:'DESPACHADA',seguimiento:'PRUEBA123',fechaDespacho:'2026-10-21',correo:'Andreani'});
  const order=await value('reservas',reservationId);
@@ -142,7 +142,7 @@ test('cotización ocupa cupos indefinidamente; cancelar o iniciar es atómico y 
  await assert.rejects(later.cambiarReserva(id,'CONFIRMADA',{verificado:true,costoEnvio:1500}),/iniciá/);
  const start=clock+5*86400000;
  const delayed=crearGestion({db,doc,collection,runTransaction,serverTimestamp,Timestamp,currentUser:()=>({uid:ADMIN_UID,isAnonymous:false}),now:()=>start});
- const outcomes=await Promise.allSettled([delayed.iniciarPlazoPago(id,{costoEnvio:1500,comunicado:true}),delayed.iniciarPlazoPago(id,{costoEnvio:1500,comunicado:true})]);
+ const outcomes=await Promise.allSettled([delayed.iniciarPlazoPago(id,{costoEnvio:1500,comunicado:true,instruccionesPago:'Alias de prueba: pixel.test'}),delayed.iniciarPlazoPago(id,{costoEnvio:1500,comunicado:true,instruccionesPago:'Alias de prueba: pixel.test'})]);
  assert.equal(outcomes.filter(r=>r.status==='fulfilled').length,1);
  const r=await value('reservas',id);
  assert.equal(r.pagoIniciadoEn.toMillis(),start);assert.equal(r.venceEn.toMillis(),start+48*3600000);
@@ -159,7 +159,7 @@ test('cancelar cotización manual y desde solicitud libera exactamente una vez',
  for(const id of ['solicitud_001_a',manual]){
   await ops.cambiarReserva(id,'CANCELADA');
   await assert.rejects(ops.cambiarReserva(id,'CANCELADA'),/ya cambió/);
-  await assert.rejects(ops.iniciarPlazoPago(id,{costoEnvio:0,comunicado:true}),/ya cambió/);
+  await assert.rejects(ops.iniciarPlazoPago(id,{costoEnvio:0,comunicado:true,instruccionesPago:'Alias de prueba: pixel.test'}),/ya cambió/);
  }
  assert.equal((await value('ediciones','001')).cuposReservados,0);
 });
@@ -173,6 +173,6 @@ test('retiro inicia plazo con envío cero y las operaciones nuevas requieren adm
  await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'solicitudes','local'),{...request,entrega:'local'}));
  await ops.reservarSolicitud('local');
  await assert.rejects(makeOps({uid:'otra',isAnonymous:false}).iniciarPlazoPago('solicitud_local',{comunicado:true}),/denegado/);
- await ops.iniciarPlazoPago('solicitud_local',{comunicado:true});
+ await ops.iniciarPlazoPago('solicitud_local',{comunicado:true,instruccionesPago:'Coordinación de retiro por WhatsApp'});
  assert.equal((await value('reservas','solicitud_local')).costoEnvio,0);
 });

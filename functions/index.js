@@ -33,7 +33,7 @@ function emailData(event,d,editionName){
   pagosHabilitados:d.pagosHabilitados===true,
   instruccionesPago:d.instruccionesPago,
   pagoVerificadoEn:d.pagoVerificadoEn,
-  correo:str(d.transportista||d.correo||d.empresaLogistica||''),
+  correo:str(d.transportista||d.empresaLogistica||(c.entrega==='local'?'Retiro en Posadas':'')||d.correo||''),
   modalidadEntrega:str(c.entrega||d.modalidadEntrega||''),
   fechaDespacho:d.fechaDespacho,
   seguimiento:d.seguimiento,

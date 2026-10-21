@@ -142,7 +142,7 @@ form.addEventListener('submit',async event=>{
  }catch(error){
   if(adminTest&&!testAllowed())return;
   status.textContent=adminTest
-   ?'No pudimos confirmar la recepción de prueba. Verificá con la persona responsable las reglas autorizadas y que que la edición 999 siga en borrador. Reintentá sin recargar para no duplicar.'
+   ?'No pudimos confirmar la recepción de prueba. Verificá con la persona responsable las reglas autorizadas y que la edición 999 siga en borrador. Reintentá sin recargar para no duplicar.'
    :error.code==='permission-denied'
    ?'No se pudo guardar. Si ya enviaste una solicitud desde este navegador, no hace falta repetirla. Si es la primera, contactá a Pixel para revisar la recepción.'
    :error.code==='auth/operation-not-allowed'

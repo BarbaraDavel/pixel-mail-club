@@ -20,7 +20,7 @@ function showPrice(){
  $('#totalPrice').textContent=edition&&valid?money(edition.precio*qty):'—';
  const shipping=$('#shippingEstimate'), grand=$('#grandTotal');
  const local=form.elements.entrega.value==='local';
- if(shipping)shipping.textContent=local?'Gratis':'A cotizar';
+ if(shipping)shipping.textContent=local?'Sin costo':'A cotizar';
  if(grand)grand.textContent=edition&&valid&&local?money(edition.precio*qty):'A confirmar';
  button.disabled=DEMO_MODE||!edition||!valid||!MAILCLUB_API_URL;
 }

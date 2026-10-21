@@ -73,7 +73,7 @@ form.addEventListener('submit',async event=>{event.preventDefault();if(!form.rep
   const lines=['Hola, Pixel! 💌 Quiero consultar por el Mail Club.','Edición: Cartitas bajo el árbol (001)','Sobres: '+data.cantidad,'Nombre: '+data.nombre,'Apodo: '+(data.apodo||'—'),'Email: '+data.email,'WhatsApp: '+data.telefono,'Entrega: '+delivery,'Localidad: '+data.localidad,'Provincia: '+data.provincia,'Código postal: '+data.codigoPostal];
   if(data.entrega==='domicilio'&&data.direccion)lines.push('Dirección: '+data.direccion);
   lines.push('Sé que el precio está pendiente de publicación y que esta consulta no reserva cupos.');
-  const url='https://wa.me/5493764297950?text='+encodeURIComponent(lines.join('\\n'));
+  const url='https://wa.me/5493764297950?text='+encodeURIComponent(lines.join('\n'));
   status.textContent='Se abrirá WhatsApp con tu consulta. Revisá el mensaje y tocá Enviar para comunicártelo a Pixel. Esto no reserva cupos.';
   window.open(url,'_blank','noopener,noreferrer');
   return;

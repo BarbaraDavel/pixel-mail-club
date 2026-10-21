@@ -9,7 +9,7 @@ const auth=getAuth(app),db=getFirestore(app);
 const el=id=>document.getElementById(id);
 const status=el('adminStatus');
 const formatDate=v=>{const d=typeof v?.toDate==='function'?v.toDate():new Date(v);return Number.isFinite(d.getTime())?d.toLocaleString('es-AR'):'—';};
-onAuthStateChanged(auth,async user=>{
+async function cargarPanel(user){
   el('adminContent').hidden=true;
   if(!user){status.textContent='Iniciá sesión desde la página principal y volvé acá.';return;}
   if(user.uid!==ADMIN_UID){status.textContent='Esta cuenta no tiene acceso de administración.';return;}
@@ -22,25 +22,59 @@ onAuthStateChanged(auth,async user=>{
     const edition={id:editionSnap.id,...editionSnap.data()};
     const reservas=reservationsSnap.docs.map(d=>({id:d.id,...d.data()}));
     const result=calcularCupos(edition,reservas);
+    const contador=Number(edition.cuposReservados??0);
+    if(!Number.isSafeInteger(contador)||contador<0||contador>Number(edition.cupos))throw new Error('Contador de cupos inválido');
     el('adminEdition').textContent=edition.nombre||'Edición 001';
     el('adminState').textContent='Estado: '+(edition.estado||'sin definir');
     el('adminTotal').textContent=String(result.total);
-    el('adminUsed').textContent=String(result.ocupados);
-    el('adminAvailable').textContent=String(result.disponibles);
+    el('adminUsed').textContent=String(contador);
+    el('adminAvailable').textContent=String(Number(edition.cupos)-contador);
     const tbody=el('adminReservations');tbody.replaceChildren();
     for(const r of reservas){
       const tr=document.createElement('tr');
       for(const val of [r.id,r.estado||'—',String(r.cantidad??'—'),r.venceEn?formatDate(r.venceEn):'—']){
         const td=document.createElement('td');td.textContent=val;tr.append(td);
       }
-      tbody.append(tr);
+      const actions=document.createElement('td');
+      if(r.estado==='PENDIENTE_PAGO'){
+        const expired=r.venceEn && (typeof r.venceEn.toMillis==='function'?r.venceEn.toMillis():Date.parse(r.venceEn))<=Date.now();
+        for(const [label,next] of [[expired?'Cerrar vencida':'Cancelar','CANCELADA'],...(!expired?[['Confirmar pago','CONFIRMADA']]:[])]){
+          const btn=document.createElement('button');btn.type='button';btn.textContent=label;btn.style.margin='3px';btn.addEventListener('click',()=>cambiarEstado(r,next));actions.append(btn);
+        }
+      }
+      tr.append(actions);tbody.append(tr);
     }
-    if(!reservas.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='Todavía no hay reservas.';tr.append(td);tbody.append(tr);}
-    status.textContent='Datos cargados · modo lectura';
+    if(!reservas.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='Todavía no hay reservas.';tr.append(td);tbody.append(tr);}
+    status.textContent='Datos cargados · administración';
+    if(result.ocupados!==contador){status.textContent='Atención: el contador reservado ('+contador+') difiere del cálculo por vencimientos ('+result.ocupados+'). Los cupos no se liberan hasta cerrar las reservas.';}
     if(result.excedido){status.textContent='Atención: hay más sobres ocupados que cupos totales.';status.className='admin-error';}
     el('adminContent').hidden=false;
   }catch(error){status.textContent='No se pudieron leer los datos: '+(error.code||error.message)+'. Verificá los permisos de Firestore.';status.className='admin-error';}
-});
+}
+onAuthStateChanged(auth,cargarPanel);
+
+async function cambiarEstado(reserva,nuevoEstado){
+  if(auth.currentUser?.uid!==ADMIN_UID)return;
+  const accion=nuevoEstado==='CONFIRMADA'?'confirmar el pago':'cancelar y liberar '+reserva.cantidad+' cupo(s)';
+  if(!confirm('¿Querés '+accion+' de esta reserva?'))return;
+  status.textContent='Actualizando reserva…';
+  try{
+    await runTransaction(db,async tx=>{
+      const editionRef=doc(db,'ediciones','001'),reservaRef=doc(db,'reservas',reserva.id);
+      const [eSnap,rSnap]=await Promise.all([tx.get(editionRef),tx.get(reservaRef)]);
+      if(!eSnap.exists()||!rSnap.exists())throw new Error('Datos no encontrados');
+      const r=rSnap.data();
+      if(r.edicionId!=='001'||r.estado!=='PENDIENTE_PAGO')throw new Error('La reserva ya cambió de estado');
+      const vencimiento=r.venceEn?.toMillis?.()??Date.parse(r.venceEn);
+      if(nuevoEstado==='CONFIRMADA'&&(!Number.isFinite(vencimiento)||vencimiento<=Date.now()))throw new Error('La reserva venció. No se puede confirmar sin revisar disponibilidad');
+      const cantidad=Number(r.cantidad),ocupados=Number(eSnap.data().cuposReservados??0);
+      if(!Number.isSafeInteger(cantidad)||cantidad<1||!Number.isSafeInteger(ocupados)||ocupados<cantidad)throw new Error('Contador inconsistente; no se modificó nada');
+      if(nuevoEstado==='CANCELADA')tx.update(editionRef,{cuposReservados:ocupados-cantidad});
+      tx.update(reservaRef,{estado:nuevoEstado,actualizadaEn:serverTimestamp()});
+    });
+    await cargarPanel(auth.currentUser);
+  }catch(error){status.textContent='No se pudo actualizar: '+(error.code||error.message);console.error(error);}
+}
 
 const reservationForm=el('adminNewReservation');
 reservationForm.addEventListener('submit',async event=>{
@@ -71,7 +105,8 @@ reservationForm.addEventListener('submit',async event=>{
         venceEn:Timestamp.fromMillis(Date.now()+48*60*60*1000)
       });
     });
-    output.textContent='Reserva registrada correctamente. Actualizá el panel para ver los cambios.';
+    output.textContent='Reserva registrada correctamente.';
+    await cargarPanel(auth.currentUser);
     reservationForm.reset();
   }catch(error){
     output.textContent=error.code==='permission-denied'

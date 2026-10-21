@@ -25,7 +25,12 @@
       "edition-preview.json",
       ".firebase/**",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "server/**",
+      "emails/**",
+      "scripts/**",
+      "tests/**",
+      "docs/**"
     ]
   }
 }

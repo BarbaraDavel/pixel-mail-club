@@ -1,9 +1,12 @@
 import {createServer} from 'node:http';
 import {readFile,writeFile} from 'node:fs/promises';
+import {dirname,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {google} from 'googleapis';
 
-const file=new URL('./gmail-oauth-client.json',import.meta.url);
-const out=new URL('./.gmail-refresh-token',import.meta.url);
+const here=dirname(fileURLToPath(import.meta.url));
+const file=resolve(here,'../gmail-oauth-client.json');
+const out=resolve(here,'../.gmail-refresh-token');
 const raw=JSON.parse(await readFile(file,'utf8'));
 const client=raw.installed||raw.web;
 if(!client?.client_id||!client?.client_secret)throw new Error('El archivo debe ser el JSON OAuth descargado desde Google Cloud.');

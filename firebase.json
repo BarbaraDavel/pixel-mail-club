@@ -32,5 +32,9 @@
       "tests/**",
       "docs/**"
     ]
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22"
   }
 }

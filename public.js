@@ -1,9 +1,16 @@
+import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js';
+import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js';
+import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js';
+import { firebaseConfig } from './v12-firebase-config.js';
 import {MAILCLUB_API_URL} from './public-config.js';
 const $=s=>document.querySelector(s);
 const form=$('#signup'), status=$('#status'), button=$('#submit');
 const money=n=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n);
 let edition=null;
 const DEMO_MODE=!MAILCLUB_API_URL;
+const firebaseApp=getApps().length?getApp():initializeApp(firebaseConfig);
+const firestore=getFirestore(firebaseApp);
+const auth=getAuth(firebaseApp);
 const setText=(id,value)=>{const el=$(id);if(el)el.textContent=value;};
 function applyEdition(data){if(!data)return;setText('#editionTitle',data.nombre||'Pixel Mail Club');setText('#editionDescription',data.descripcion||data.periodo||'');setText('#editionBadge',`EDICIÓN ${data.id||'001'} · ${(data.periodo||'').toUpperCase()}`);setText('#selectedEdition',`Edición ${data.id||'001'} · ${data.periodo||''}`);const list=$('#editionContents');if(list&&Array.isArray(data.contenido)){list.replaceChildren(...data.contenido.map(item=>{const li=document.createElement('li');li.textContent=item;return li;}));}document.body.dataset.theme=/^[a-z-]+$/.test(data.tema||'')?data.tema:'navidad';if(data.imagen&&/^\.\.?\/[a-zA-Z0-9_./-]+$/.test(data.imagen)){const art=$('.hero-art');if(art)art.src=data.imagen;}}
 const endpoint=(action)=>MAILCLUB_API_URL.replace(/\/$/,'')+'/'+action;
@@ -15,10 +22,35 @@ function showPrice(){
  const local=form.elements.entrega.value==='local';
  if(shipping)shipping.textContent=local?'Gratis':'A cotizar';
  if(grand)grand.textContent=edition&&valid&&local?money(edition.precio*qty):'A confirmar';
- button.disabled=!edition||!valid||!MAILCLUB_API_URL;
+ button.disabled=DEMO_MODE||!edition||!valid||!MAILCLUB_API_URL;
 }
 async function loadEdition(){
- if(DEMO_MODE){try{const r=await fetch('./edition-preview.json',{cache:'no-store'});if(r.ok)applyEdition(await r.json());}catch(e){console.warn('Vista previa sin archivo de edición:',e);}status.textContent='Vista previa: la inscripción y los pagos están deshabilitados hasta configurar un backend seguro.';$('#editionPrice').textContent='El precio se mostrará cuando la edición esté publicada y conectada al servicio seguro.';return;}
+ if(DEMO_MODE){
+  try{const r=await fetch('./edition-preview.json',{cache:'no-store'});if(r.ok)applyEdition(await r.json());}catch(e){console.warn('Vista previa sin archivo de edición:',e);}
+  status.textContent='Vista previa: las reservas y los pagos todavía están deshabilitados.';
+  $('#editionPrice').textContent='La edición todavía no está abierta para reservas.';
+  onAuthStateChanged(auth,async user=>{
+    try{
+      // Firestore solo permite leer borradores a la administradora.
+      // Las reglas del servidor, no este control de interfaz, protegen el documento.
+      const snapshot=await getDoc(doc(firestore,'ediciones','001'));
+      if(!snapshot.exists())return;
+      const data={id:snapshot.id,...snapshot.data()};
+      if(data.estado!=='publicada'&&user?.uid!=='LSf6e03U0xfPDVG3Wmam9BXuAm13')return;
+      edition=data;
+      applyEdition(data);
+      showPrice();
+      $('#editionPrice').textContent=data.estado==='publicada'
+        ?'El envío se abona por separado. Reservas aún no habilitadas.'
+        :'Vista previa de administración · precio de prueba · edición en borrador.';
+    }catch(error){
+      if(error.code!=='permission-denied')console.warn('No se pudo consultar la edición:',error);
+      edition=null;
+      showPrice();
+    }
+  });
+  return;
+ }
  try{const res=await fetch(endpoint('edition'),{headers:{Accept:'application/json'}});const json=await res.json();if(!res.ok)throw new Error(json.error||'No se pudo consultar la edición');
  edition=json.edition;applyEdition(edition);if(!edition||!Number.isSafeInteger(edition.precio)||edition.precio<=0)throw new Error('La edición no tiene un precio válido.');
  $('#editionTitle').textContent=edition.nombre;$('#editionDescription').textContent=edition.descripcion||edition.periodo;$('#editionBadge').textContent=`EDICIÓN ${edition.id} · ${(edition.periodo||'').toUpperCase()}`;$('#selectedEdition').textContent=`Edición ${edition.id} · ${edition.periodo}`;$('#editionPrice').textContent='El envío se abona por separado y está a cargo del comprador.';showPrice();

@@ -1,0 +1,53 @@
+// REGLAS PROPUESTAS: NO publicar sin integrar y probar el formulario.
+// Mantener las reglas actuales de ediciones y reservas sin cambios.
+// Agregar dentro de match /databases/{database}/documents:
+match /solicitudes/{solicitudId} {
+  allow get, list: if esAdmin();
+  allow create: if request.auth != null
+    && request.resource.data.keys().hasOnly([
+      'uid','edicionId','nombre','apodo','email','telefono',
+      'cantidad','localidad','provincia','codigoPostal','direccion',
+      'entrega','comunicaciones','estado','creadaEn'
+    ])
+    && request.resource.data.keys().hasAll([
+      'uid','edicionId','nombre','apodo','email','telefono',
+      'cantidad','localidad','provincia','codigoPostal','direccion',
+      'entrega','comunicaciones','estado','creadaEn'
+    ])
+    && request.resource.data.uid == request.auth.uid
+    && request.resource.data.edicionId == '001'
+    && request.resource.data.estado == 'NUEVA_CONSULTA'
+    && request.resource.data.creadaEn == request.time
+    && request.resource.data.nombre is string
+    && request.resource.data.nombre.size() > 0
+    && request.resource.data.nombre.size() <= 100
+    && request.resource.data.apodo is string
+    && request.resource.data.apodo.size() <= 60
+    && request.resource.data.email is string
+    && request.resource.data.email.size() > 3
+    && request.resource.data.email.size() <= 254
+    && request.resource.data.telefono is string
+    && request.resource.data.telefono.size() > 0
+    && request.resource.data.telefono.size() <= 25
+    && request.resource.data.cantidad is int
+    && request.resource.data.cantidad >= 1
+    && request.resource.data.cantidad <= 20
+    && request.resource.data.localidad is string
+    && request.resource.data.localidad.size() > 0
+    && request.resource.data.localidad.size() <= 80
+    && request.resource.data.provincia is string
+    && request.resource.data.provincia.size() > 0
+    && request.resource.data.provincia.size() <= 80
+    && request.resource.data.codigoPostal is string
+    && request.resource.data.codigoPostal.size() > 0
+    && request.resource.data.codigoPostal.size() <= 12
+    && request.resource.data.direccion is string
+    && request.resource.data.direccion.size() <= 200
+    && request.resource.data.entrega in ['domicilio','sucursal','local']
+    && request.resource.data.comunicaciones is bool;
+  allow update: if esAdmin();
+  allow delete: if false;
+}
+// Nota: la autenticación anónima NO evita spam. Antes de abrir al público
+// evaluar App Check, cuotas y una vía de moderación/antibot.
+// Nunca permitir lectura pública de solicitudes.

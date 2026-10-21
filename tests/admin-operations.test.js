@@ -87,7 +87,7 @@ test('cerrar vencida libera una sola vez y no permite confirmar un pago tardío'
 test('preparación y despacho privado con fecha y seguimiento',async()=>{
  await ops.reservarSolicitud('001_a');await ops.cambiarReserva('solicitud_001_a','CONFIRMADA',{verificado:true,costoEnvio:1000});
  await assert.rejects(ops.actualizarPedido('solicitud_001_a',{preparacion:'DESPACHADA'}),/Completá/);
- await ops.actualizarPedido('solicitud_001_a',{preparacion:'DESPACHADA',seguimiento:'ABC123',fechaDespacho:'2026-10-21'});
+ await ops.actualizarPedido('solicitud_001_a',{preparacion:'DESPACHADA',seguimiento:'ABC123',fechaDespacho:'2026-10-21',correo:'Andreani'});
  const r=await value('reservas','solicitud_001_a');
  assert.equal(r.seguimiento,'ABC123');assert.equal(r.preparacion,'DESPACHADA');
  assert.equal((await value('ediciones','001')).cuposReservados,2);
@@ -120,7 +120,7 @@ test('formulario de prueba → solicitud privada → reserva → pedido conserva
  assert.equal((await value('ediciones','999')).cuposReservados,1);
  await assert.rejects(ops.reservarSolicitud(id));
  await ops.cambiarReserva(reservationId,'CONFIRMADA',{verificado:true,costoEnvio:0});
- await ops.actualizarPedido(reservationId,{preparacion:'DESPACHADA',seguimiento:'PRUEBA123',fechaDespacho:'2026-10-21'});
+ await ops.actualizarPedido(reservationId,{preparacion:'DESPACHADA',seguimiento:'PRUEBA123',fechaDespacho:'2026-10-21',correo:'Andreani'});
  const order=await value('reservas',reservationId);
  assert.equal(order.estado,'CONFIRMADA');assert.equal(order.total,100);assert.equal(order.seguimiento,'PRUEBA123');
  assert.equal(order.cliente.email,payload.email);assert.equal(order.cliente.direccion,payload.direccion);

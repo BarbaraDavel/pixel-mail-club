@@ -3,7 +3,7 @@ import {getFirestore,FieldValue} from 'firebase-admin/firestore';
 import {onCall,HttpsError} from 'firebase-functions/v2/https';
 import {defineBoolean,defineSecret} from 'firebase-functions/params';
 import {google} from 'googleapis';
-import {prepararCorreo,EMAILS_ENABLED} from './templates.js';
+import {prepararCorreo} from './templates.js';
 
 initializeApp();
 const db=getFirestore();
@@ -66,7 +66,7 @@ async function sourceRecord(event,id){
 }
 export const enviarCorreoMailClub=onCall({region:'southamerica-east1',secrets:[clientId,clientSecret,refreshToken],enforceAppCheck:true},async request=>{
  if(!request.auth||!ADMIN_UIDS.has(request.auth.uid)||request.auth.token.firebase?.sign_in_provider==='anonymous')fail('permission-denied','Solo una cuenta administradora puede solicitar correos.');
- if(!enabled.value()||!EMAILS_ENABLED)fail('failed-precondition','Los envíos automáticos siguen desactivados.');
+ if(!enabled.value())fail('failed-precondition','Los envíos automáticos siguen desactivados.');
  const event=str(request.data?.evento),id=str(request.data?.documentoId);
  if(!EVENTS.has(event)||!id||id.length>180||/[\/\\]/.test(id))fail('invalid-argument','Evento o identificador inválido.');
  const {ref,data}=await sourceRecord(event,id);

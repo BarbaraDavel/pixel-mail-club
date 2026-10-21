@@ -14,7 +14,7 @@ test('limpieza solo admite solicitudes/reservas 001 y conserva configuración',(
 test('correos desactivados y campos de seguimiento/pago obligatorios',()=>{
  assert.equal(EMAILS_ENABLED,false);
  const d={nombre:'Ana',edicion:'Cartitas bajo el árbol'};
- assert.match(prepararCorreo('solicitud',d).text,/no hay una reserva ni obligación/);
+ assert.match(prepararCorreo('solicitud',d).text,/todavía no está reservado/);
  for(const type of ['reserva','pago','despacho'])assert.throws(()=>prepararCorreo(type,d),/Falta|Cantidad inválida/);
  assert.match(prepararCorreo('despacho',{...d,fechaDespacho:'2026-10-21',correo:'Andreani',seguimiento:'ABC123'}).text,/ABC123/);
 });

@@ -4,7 +4,7 @@ import {getFirestore,doc,getDoc,collection,getDocs,runTransaction,serverTimestam
 import {protegerApp} from './app-check.js';
 import {firebaseConfig} from './v12-firebase-config.js';
 import {calcularCupos} from './reservas-cupos.js';
-import {crearGestion,ADMIN_UID} from './admin-operations.js';
+import {crearGestion,esAdmin} from './admin-operations.js';
 import {initAdminTabs} from './admin-tabs.js';
 const app=getApps().length?getApp():initializeApp(firebaseConfig);
 protegerApp(app);
@@ -21,7 +21,7 @@ const preparation={PENDIENTE:'Por preparar',EN_PREPARACION:'En preparación',LIS
 const delivery={domicilio:'A domicilio',sucursal:'A sucursal',local:'Retiro a convenir en Posadas'};
 let editions=[],reservations=[],selected=new URLSearchParams(window.location.search).get('edicion')==='999'?'999':'001',loadedRequests=[],cursor=null,moreRequests=false;
 let generation=0,requestsLoading=false,panelLoading=false,editingVersion=null,newEdition=false,actionBusy=false,cancelDialog=null;
-const authorized=()=>auth.currentUser?.uid===ADMIN_UID;
+const authorized=()=>esAdmin(auth.currentUser);
 function feedback(text,error=false){
  if(!authorized())return;
  const p=el('adminActionFeedback');p.hidden=false;p.dataset.kind=error?'error':'success';p.textContent=text;
@@ -298,6 +298,6 @@ el('adminRequestFilter').addEventListener('change',()=>{if(authorized()&&!reques
 el('adminGoToPrice').addEventListener('click',()=>{if(authorized())checkReservationPrice();});
 onAuthStateChanged(auth,user=>{
  clearPrivate();
- if(user?.uid!==ADMIN_UID){el('adminStatus').textContent=user?'Esta cuenta no tiene acceso de administración.':'Iniciá sesión desde la página principal y volvé acá.';return;}
+ if(!esAdmin(user)){el('adminStatus').textContent=user?'Esta cuenta no tiene acceso de administración.':'Iniciá sesión desde la página principal y volvé acá.';return;}
  loadPanel();
 });

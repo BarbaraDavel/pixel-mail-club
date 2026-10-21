@@ -32,7 +32,7 @@ async function cargarPanel(user){
     const tbody=el('adminReservations');tbody.replaceChildren();
     for(const r of reservas){
       const tr=document.createElement('tr');
-      for(const val of [r.id,r.estado||'—',String(r.cantidad??'—'),r.venceEn?formatDate(r.venceEn):'—']){
+      for(const val of [r.referencia||'—',r.id,r.estado||'—',String(r.cantidad??'—'),r.venceEn?formatDate(r.venceEn):'—']){
         const td=document.createElement('td');td.textContent=val;tr.append(td);
       }
       const actions=document.createElement('td');
@@ -44,7 +44,7 @@ async function cargarPanel(user){
       }
       tr.append(actions);tbody.append(tr);
     }
-    if(!reservas.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='Todavía no hay reservas.';tr.append(td);tbody.append(tr);}
+    if(!reservas.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent='Todavía no hay reservas.';tr.append(td);tbody.append(tr);}
     status.textContent='Datos cargados · administración';
     if(result.ocupados!==contador){status.textContent='Atención: el contador reservado ('+contador+') difiere del cálculo por vencimientos ('+result.ocupados+'). Los cupos no se liberan hasta cerrar las reservas.';}
     if(result.excedido){status.textContent='Atención: hay más sobres ocupados que cupos totales.';status.className='admin-error';}

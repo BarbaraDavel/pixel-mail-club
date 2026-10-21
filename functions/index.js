@@ -76,10 +76,15 @@ export const enviarCorreoMailClub=onCall({region:'southamerica-east1',secrets:[c
  const stage=event==='reserva'?'_'+str(data.estado):'';
  const eventId=event+'_'+id+stage;
  const dispatchRef=db.collection('emailDispatches').doc(eventId);
- const existing=await dispatchRef.get();
- if(existing.exists&&existing.data().status==='SENT')return {sent:false,duplicate:true,message:'Este correo ya figura como enviado.'};
- if(existing.exists&&existing.data().status==='SENDING')fail('already-exists','El envío ya está en curso; revisá el registro antes de reintentar.');
- await dispatchRef.set({event,documentId:id,status:'SENDING',recipient:to,requestedBy:request.auth.uid,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+ const claim=await db.runTransaction(async tx=>{
+  const existing=await tx.get(dispatchRef);
+  if(existing.exists&&existing.data().status==='SENT')return 'SENT';
+  if(existing.exists&&existing.data().status==='SENDING')return 'SENDING';
+  tx.set(dispatchRef,{event,documentId:id,status:'SENDING',recipient:to,requestedBy:request.auth.uid,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+  return 'CLAIMED';
+ });
+ if(claim==='SENT')return {sent:false,duplicate:true,message:'Este correo ya figura como enviado.'};
+ if(claim==='SENDING')fail('already-exists','El envío ya está en curso; revisá el registro antes de reintentar.');
  try{
   const messageData=emailData(event,data,data.edicionNombre);
   const rendered=prepararCorreo(event,messageData);

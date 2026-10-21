@@ -1,0 +1,24 @@
+// Pixel Mail Club · Reglas base (borrador para despliegue posterior)
+// NO habilitar escrituras públicas hasta completar transacciones y pruebas.
+// Las reglas actuales de Firebase no se modifican al guardar este archivo.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function esAdmin() {
+      return request.auth != null
+        && request.auth.uid == 'LSf6e03U0xfPDVG3Wmam9BXuAm13';
+    }
+    match /ediciones/{edicionId} {
+      allow get, list: if esAdmin() || resource.data.estado == 'publicada';
+      allow create, update, delete: if esAdmin();
+    }
+    match /reservas/{reservaId} {
+      // Solo la administradora hasta diseñar el protocolo de reservas
+      // concurrentes, cupos, vencimiento y privacidad de compradores.
+      allow read, write: if esAdmin();
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

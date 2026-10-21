@@ -10,6 +10,13 @@ const money=n=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',ma
 let edition=null;
 let sending=false, submitted=false;
 const openedAt=Date.now();
+const adminTest=document.body.dataset.intake==='admin-test';
+const adminUid='LSf6e03U0xfPDVG3Wmam9BXuAm13';
+// Un ID por carga: los reintentos no duplican; recargar permite otra prueba privada.
+const testRequestId=adminTest?'999_'+adminUid+'_'+crypto.randomUUID():null;
+let testReady=false;
+const testAllowed=()=>testReady&&auth.currentUser?.uid===adminUid;
+
 const firebaseApp=getApps().length?getApp():initializeApp(firebaseConfig);
 protegerApp(firebaseApp);
 const firestore=getFirestore(firebaseApp);
@@ -29,8 +36,31 @@ function showPrice(){
  const local=form.elements.entrega.value==='local';
  if(shipping)shipping.textContent=local?'Sin costo':'A cotizar';
  if(grand)grand.textContent=priceValid&&valid&&local?money(edition.precio*qty):'A confirmar';
- button.disabled=!valid||sending||submitted;
+ button.disabled=!valid||sending||submitted||(adminTest&&!testAllowed());
  button.textContent=submitted?'Solicitud recibida 💌':sending?'Enviando…':'Enviar solicitud privada 💌';
+}
+async function loadTestEdition(){
+ onAuthStateChanged(auth,async user=>{
+  testReady=false;edition=null;form.hidden=true;form.reset();showPrice();
+  const banner=$('#testStatus');
+  banner.textContent='Ingresá con tu cuenta administradora desde la página principal y volvé a abrir esta prueba.';
+  if(user?.uid!==adminUid)return;
+  banner.textContent='Cargando la edición privada 999…';
+  try{
+   const snapshot=await getDoc(doc(firestore,'ediciones','999'));
+   if(auth.currentUser?.uid!==user.uid)return;
+   if(!snapshot.exists()||snapshot.data().estado!=='borrador'){
+    banner.textContent='Creá primero la edición 999 · PRUEBA como borrador desde el admin.';return;
+   }
+   edition={...snapshot.data(),id:'999'};testReady=true;form.hidden=false;
+   submitted=false;applyEdition(edition);showPrice();
+   banner.textContent='PRUEBA PRIVADA · Edición 999. Completá el mismo formulario del portal con tus datos. Enviar no ocupa cupos ni realiza cobros.';
+   setText('#editionPrice','Importes de prueba. El envío se acuerda al confirmar el pedido. No realices pagos.');
+   status.textContent='La solicitud aparecerá en el admin al seleccionar 999 · PRUEBA.';
+  }catch{
+   if(auth.currentUser?.uid===user.uid)banner.textContent='No se pudo cargar la prueba. Revisá tu sesión y la conexión.';
+  }
+ });
 }
 async function loadEdition(){
  try{const r=await fetch('./edition-preview.json',{cache:'no-store'});if(r.ok)applyEdition(await r.json());}catch{}
@@ -59,6 +89,7 @@ form.elements.entrega.dispatchEvent(new Event('change'));
 form.addEventListener('submit',async event=>{
  event.preventDefault();
  if(sending||submitted)return;
+ if(adminTest&&!testAllowed())return;
  if(!form.reportValidity())return;
  const fd=new FormData(form);
  if(fd.get('website')||Date.now()-openedAt<3000){status.textContent='Esperá unos segundos y revisá tus datos antes de enviar.';return;}
@@ -67,6 +98,12 @@ form.addEventListener('submit',async event=>{
  catch(error){status.textContent=error.message;return;}
  sending=true;showPrice();status.textContent='Enviando tu solicitud privada…';
  try{
+  if(adminTest){
+   if(!testAllowed())throw new Error('admin-required');
+   await setDoc(doc(firestore,'solicitudes',testRequestId),{
+    ...data,edicionId:'999',uid:adminUid,estado:'NUEVA_CONSULTA',creadaEn:serverTimestamp()
+   });
+  }else{
   await intakeAuth.authStateReady();
   const user=intakeAuth.currentUser||(await signInAnonymously(intakeAuth)).user;
   if(!user.isAnonymous)throw new Error('anonymous-required');
@@ -74,18 +111,24 @@ form.addEventListener('submit',async event=>{
   await setDoc(doc(intakeDb,'solicitudes','001_'+user.uid),{
    ...data,uid:user.uid,estado:'NUEVA_CONSULTA',creadaEn:serverTimestamp()
   });
+  }
+  if(adminTest&&!testAllowed())return;
   submitted=true;
   status.textContent='¡Recibimos tu solicitud! Pixel se comunicará con vos. No reservaste cupos ni tenés que pagar todavía.';
+  if(adminTest)status.textContent='¡Solicitud de prueba recibida! Abrí el admin en 999 · PRUEBA → Solicitudes. Todavía no ocupa cupos. Recargá esta página si necesitás una prueba nueva.';
   form.reset();
  }catch(error){
-  status.textContent=error.code==='permission-denied'
+  if(adminTest&&!testAllowed())return;
+  status.textContent=adminTest
+   ?'No pudimos confirmar la recepción de prueba. Publicá las reglas actualizadas de firestore.rules y verificá que la edición 999 siga en borrador. Reintentá sin recargar para no duplicar.'
+   :error.code==='permission-denied'
    ?'No se pudo guardar. Si ya enviaste una solicitud desde este navegador, no hace falta repetirla. Si es la primera, contactá a Pixel para revisar la recepción.'
    :error.code==='auth/operation-not-allowed'
    ?'La recepción de solicitudes todavía no está habilitada. Intentá más tarde.'
    :'No pudimos confirmar la recepción. Revisá tu conexión y reintentá: no se duplicará la solicitud.';
  }finally{sending=false;showPrice();}
 });
-loadEdition();
+if(adminTest)loadTestEdition();else loadEdition();
 
 // V11.1: formulario compacto, tres pasos; conserva validación nativa y envío existente.
 let currentStep=0;
@@ -107,3 +150,4 @@ nextButton.addEventListener('click',()=>{
  setStep(Math.min(currentStep+1,stepSections.length-1));
 });
 prevButton.addEventListener('click',()=>setStep(Math.max(currentStep-1,0)));
+

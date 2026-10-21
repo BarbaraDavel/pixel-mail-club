@@ -24,8 +24,15 @@ service cloud.firestore {
     match /solicitudes/{solicitudId} {
       allow get, list: if esAdmin();
       allow create: if request.auth != null
-        && request.auth.token.firebase.sign_in_provider == 'anonymous'
-        && solicitudId == '001_' + request.auth.uid
+        && (
+          (request.auth.token.firebase.sign_in_provider == 'anonymous'
+            && solicitudId == '001_' + request.auth.uid
+            && request.resource.data.edicionId == '001')
+          || (esAdmin()
+            && solicitudId.matches('999_' + request.auth.uid + '_[a-zA-Z0-9-]+')
+            && request.resource.data.edicionId == '999'
+            && get(/databases/$(database)/documents/ediciones/999).data.estado == 'borrador')
+        )
         && request.resource.data.keys().hasOnly([
           'uid','edicionId','nombre','apodo','email','telefono',
           'cantidad','localidad','provincia','codigoPostal','direccion',
@@ -37,7 +44,6 @@ service cloud.firestore {
           'entrega','comunicaciones','estado','creadaEn'
         ])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.edicionId == '001'
         && request.resource.data.estado == 'NUEVA_CONSULTA'
         && request.resource.data.creadaEn == request.time
         && texto(request.resource.data.nombre, 100)

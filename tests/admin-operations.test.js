@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {initializeTestEnvironment,assertFails} from '@firebase/rules-unit-testing';
 import {doc,collection,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,Timestamp} from 'firebase/firestore';
+import {validarSolicitud} from '../solicitudes-validation.js';
 import {crearGestion,ADMIN_UID,validarEdicion} from '../admin-operations.js';
 let env,db,ops;
 const clock=Date.parse('2026-10-21T15:00:00Z');
@@ -102,4 +103,27 @@ test('identidad no administradora rechazada por operaciones y por reglas',async(
  const adb=env.authenticatedContext('anon',{firebase:{sign_in_provider:'anonymous'}}).firestore();
  await assertFails(setDoc(doc(adb,'reservas','inyectada'),{estado:'CONFIRMADA'}));
  await assertFails(updateDoc(doc(adb,'ediciones','001'),{estado:'publicada'}));
+});
+
+test('formulario de prueba → solicitud privada → reserva → pedido conserva todos los datos y solo descuenta una vez',async()=>{
+ await setDoc(doc(db,'ediciones','999'),{...edition,nombre:'PRUEBA',precio:100,cupos:2});
+ const formData={...request,nombre:'Barbi Prueba',apodo:'Barbi',cantidad:'1',condiciones:true};
+ const payload={...validarSolicitud(formData,true),uid:ADMIN_UID,edicionId:'999',estado:'NUEVA_CONSULTA',creadaEn:serverTimestamp()};
+ const id='999_'+ADMIN_UID+'_portal-test';
+ await setDoc(doc(db,'solicitudes',id),payload);
+ assert.equal((await value('ediciones','999')).cuposReservados,0);
+ assert.equal((await value('ediciones','001')).cuposReservados,0);
+ await ops.reservarSolicitud(id);
+ const reservationId='solicitud_'+id;
+ for(const key of ['nombre','apodo','email','telefono','entrega','direccion','localidad','provincia','codigoPostal'])assert.equal((await value('reservas',reservationId)).cliente[key],payload[key],key);
+ assert.equal((await value('ediciones','999')).cuposReservados,1);
+ await assert.rejects(ops.reservarSolicitud(id));
+ await ops.cambiarReserva(reservationId,'CONFIRMADA',{verificado:true,costoEnvio:0});
+ await ops.actualizarPedido(reservationId,{preparacion:'DESPACHADA',seguimiento:'PRUEBA123',fechaDespacho:'2026-10-21'});
+ const order=await value('reservas',reservationId);
+ assert.equal(order.estado,'CONFIRMADA');assert.equal(order.total,100);assert.equal(order.seguimiento,'PRUEBA123');
+ assert.equal(order.cliente.email,payload.email);assert.equal(order.cliente.direccion,payload.direccion);
+ assert.equal((await value('ediciones','999')).cuposReservados,1);
+ assert.equal((await value('ediciones','999')).estado,'borrador');
+ assert.equal((await value('ediciones','001')).cuposReservados,0);
 });
